@@ -7,8 +7,11 @@ class VariableValue:
     value:any
     def __init__(this, typeid:int):
         # if not LanTypes.is_valid_type(typeid):
-        #     raise LanTypeErrors.NotValidType
+        #     raise NotValidType()
         this.typeid = typeid
+
+    def __str__(this):
+        return f"<{this.value}@{this.typeid}>"
 
     def from_string(this, string:str):
         match (this.typeid):
@@ -17,37 +20,58 @@ class VariableValue:
                     this.value = True
                 elif (string in ["false", "False", "f", "F", "no", "No"]):
                     this.value = False
-                else:
-                    raise Exception(f"Boolean does not parse: {string}")
             case LanTypes.integer:
                 try:
                     this.value = int(string)
-                except:
-                    raise Exception(f"Integer does not parse: {string}")
+                except: pass
             case LanTypes.string:
                 if (string.startswith('"')) and (string.endswith('"')):
                     this.value = string[1:-1]
-                else:
-                    raise Exception(f"String does not parse: {string}")
-                    
+        this.value = None
 
-    def to_boolean(this):
-        pass 
+class RandomTypeConversions:
+    @staticmethod
+    def convert(string:str) -> None|bool|int|str:
+        typeid, other = RandomTypeConversions.get_type(string)
+        match (typeid):
+            case 0:
+                return None
+            case 1 if other == 0:
+                return False
+            case 1 if other == 1:
+                return True
+            case 2:
+                return int(string)
+            case 3:
+                return string[1:-1]
 
-    def to_integer(this):
-        pass
+    @staticmethod
+    def get_type(string:str) -> tuple[int, int]:
+        # Boolean Found
+        if (string in ["true", "True", "t", "T", "yes", "Yes"]):
+            return (1, 1)
+        elif (string in ["false", "False", "f", "F", "no", "No"]):
+            return (1, 0)
+        # Int Found
+        try:
+            _ = int(string)
+            return (2, 0)
+        except: pass
+        # String Found
+        if (string.startswith('"')) and (string.endswith('"')):
+            return (3, 0)
+        
+        # No value found, returning Nil
+        return (0, 0)
 
-    def to_string(this):
-        pass
-
-class LanTypeErrors(Enum):
-    class NotValidType(Exception):
-        def __init__(self, value, message="Invalid input value"):
-            self.value = value
-            self.message = message
-            super().__init__(self.message)
+class NotValidType(Exception):
+    def __init__(self, value, message="Invalid input value"):
+        self.value = value
+        self.message = message
+        super().__init__(self.message)
 
 class LanTypes(IntEnum):
+    nil     = 0
     boolean = 1
     integer = 2
     string  = 3

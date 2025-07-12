@@ -15,6 +15,13 @@ class MemoryBooker:
         this.Registry[varName] = (sum(flags), value)
         this.echo(f"Set {varName} as {value}")
 
+    def get(this, varName:str):
+        return this.Registry[varName][1]
+    
+    def find(this, varName:str) -> bool:
+        if varName in list(this.Registry.keys()): return True
+        return False
+
 class VariableFlags(IntEnum):
     Protected = 1
     Global = 2

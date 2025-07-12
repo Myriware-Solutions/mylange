@@ -1,11 +1,27 @@
 string Name1 => "Anthony Smith";
-local string Name2 => "Anthony Smith";
-global string Name3 => "Anthony Smith";
-print(Name1, Name2, Name3);
-clearCache();
+string Name3 => "Anthony Smithers";
+dump_cache();
+print(Name1, Name2, Name3, "Hello World!");
 integer Version =>> 69;
-if (true) then {
-    Dictionary d => {alpha:"A", beta:"b"}
+if (1 == 2) then {
+    print("Hello World!");
 } else {
+    print(no);
+};
 
+if (1==3) then 
+    string MyName => "Anthony F Smith" 
+else 
+    print("Nothiny HERE!");
+// Not seen
+integer result => add(1, 2);
+print(result);
+
+string YourName => input("name> ");
+string Greet => add("Hello, ", YourName);
+print(Greet);
+if (YourName == "Anthony") then {
+
+} else {
+    print("I Don't Like your Name");
 };
