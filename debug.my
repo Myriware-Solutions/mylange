@@ -1,0 +1,11 @@
+string Name1 => "Anthony Smith";
+local string Name2 => "Anthony Smith";
+global string Name3 => "Anthony Smith";
+print(Name1, Name2, Name3);
+clearCache();
+integer Version =>> 69;
+if (true) then {
+    Dictionary d => {alpha:"A", beta:"b"}
+} else {
+
+};
