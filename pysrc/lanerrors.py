@@ -2,14 +2,23 @@
 
 class LanErrors:
 
-    class StopProgramExecution(Exception):
+    class MylangeError(Exception):
+        pass
+
+    class StopProgramExecution(MylangeError):
         def __init__(this, msg="Used to safely stop due to an unrecoverable error.", value=None):
             this.value = value
             this.message = msg
             super().__init__(this.message)
 
-    class MemoryMissingError(Exception):
-        def __init__(this, msg="Could not find variable by name", value=None):
+    class MemoryMissingError(MylangeError):
+        def __init__(this, msg="Could not find variable by name.", value=None):
+            this.value = value
+            this.message = msg
+            super().__init__(this.message)
+
+    class NotIndexableError(MylangeError):
+        def __init__(this, msg="Cannot Index non-indexable variable.", value=None):
             this.value = value
             this.message = msg
             super().__init__(this.message)

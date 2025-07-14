@@ -6,6 +6,7 @@ class LanRe(StrEnum):
     # Line Recongition
     VariableDecleration = r"^(global|local)? *([a-zA-Z\[\]]+) +(\w+) *=(>+) *(.*) *"
     VariableName = r"^([a-zA-Z]\w+)"
+    IndexedVariableName = r"^([a-zA-Z]\w+)\[(\d+)\]"
     FunctionOrMethodCall = r"^([\w.]+) *\((.*)\)"
     CachedBlock = r"(0x[a-fA-F0-9]+)"
     CachedChar = r"(1x[a-fA-F0-9]+)"

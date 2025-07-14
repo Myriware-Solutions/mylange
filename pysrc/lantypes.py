@@ -13,38 +13,22 @@ class VariableValue:
     def __str__(this):
         return f"<{this.value}@{this.typeid}>"
 
-    def from_string(this, string:str):
-        match (this.typeid):
-            case LanTypes.boolean:
-                if (string in ["true", "True", "t", "T", "yes", "Yes"]):
-                    this.value = True
-                elif (string in ["false", "False", "f", "F", "no", "No"]):
-                    this.value = False
-            case LanTypes.integer:
-                try:
-                    this.value = int(string)
-                except: pass
-            case LanTypes.string:
-                if (string.startswith('"')) and (string.endswith('"')):
-                    this.value = string[1:-1]
-        this.value = None
-
 class RandomTypeConversions:
     @staticmethod
     def convert(string:str, mylangeInterpreter=None) -> any:
         typeid, other = RandomTypeConversions.get_type(string)
         match (typeid):
-            case 0:
+            case LanTypes.nil:
                 return None
-            case 1 if other == 0:
+            case LanTypes.boolean if other == 0:
                 return False
-            case 1 if other == 1:
+            case LanTypes.boolean if other == 1:
                 return True
-            case 2:
+            case LanTypes.integer:
                 return int(string)
-            case 3:
+            case LanTypes.character | LanTypes.string:
                 return string[1:-1]
-            case 4:
+            case LanTypes.array:
                 insides:str = string[1:-1]
                 from interpreter import MylangeInterpreter, CodeCleaner
                 mi:MylangeInterpreter = mylangeInterpreter
@@ -57,23 +41,23 @@ class RandomTypeConversions:
     def get_type(string:str) -> tuple[int, int]:
         # Boolean Found
         if (string == "true"):
-            return (1, 1)
+            return (LanTypes.boolean, 1)
         elif (string == "false"):
-            return (1, 0)
+            return (LanTypes.boolean, 0)
         # Int Found
         try:
             _ = int(string)
-            return (2, 0)
+            return (LanTypes.integer, 0)
         except: pass
         # String Found
         if (string.startswith('"')) and (string.endswith('"')):
-            return (3, 0)
+            return (LanTypes.string, 0)
         # Array Found
         if (string.startswith('[')) and (string.endswith(']')):
-            return (4, 0)
+            return (LanTypes.array, 0)
         
         # No value found, returning Nil
-        return (0, 0)
+        return (LanTypes.nil, 0)
 
 class NotValidType(Exception):
     def __init__(self, value, message="Invalid input value"):
@@ -81,22 +65,29 @@ class NotValidType(Exception):
         self.message = message
         super().__init__(self.message)
 
+TypeNameArray:list = ["nil", "boolean", "integer", "character", "string", "array", "lset"]
+
 class LanTypes(IntEnum):
-    nil     = 0
-    boolean = 1
-    integer = 2
-    string  = 3
-    array   = 4
-    lset    = 5 #TODO: implement
+    nil       = 0
+    boolean   = 1
+    integer   = 2
+    character = 3
+    string    = 4
+    array     = 5
+    lset      = 6 #TODO: implement
 
     @staticmethod
     def is_valid_type(typeid:int):
-        return typeid < 2
+        return (typeid <= 6) and (typeid >= 0)
+    
+    @staticmethod
+    def is_indexable(typeid:int):
+        return (typeid == LanTypes.array) or (typeid == LanTypes.lset)
     
     @staticmethod
     def from_string(typestring:str) -> int:
-        match (typestring):
-            case "boolean": return 1
-            case "integer": return 2
-            case "string": return 3
-            case "array": return 4
+        return TypeNameArray.index(typestring)
+
+    @staticmethod
+    def to_string_name(typeid:int) -> str:
+        return TypeNameArray[typeid]

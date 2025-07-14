@@ -2,7 +2,7 @@
 import inspect
 
 from memory import MemoryBooker
-from lantypes import VariableValue
+from lantypes import VariableValue, LanTypes
 
 class MylangeBuiltinFunctions:
     @staticmethod
@@ -40,7 +40,9 @@ class VariableTypeMethods:
     @staticmethod
     def get_type(i:int):
         match(i):
-            case 4:
+            case LanTypes.string:
+                return VariableTypeMethods.String
+            case LanTypes.array:
                 return VariableTypeMethods.Array
             
     @staticmethod
@@ -62,6 +64,11 @@ class VariableTypeMethods:
             # except:
             #     print("Error occured for this method", *params)
         else: raise Exception(f"This method does not exist on this type: {method} @ {var.typeid}")
+
+    class String:
+        @staticmethod
+        def charAt(var:VariableValue, index:int) -> str:
+            return var.value[index]
 
     class Array:
         @staticmethod

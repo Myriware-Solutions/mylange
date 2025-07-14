@@ -11,4 +11,6 @@ for string part in NameParts do {
     print("Hey, " + part);
 };
 
+print(Name.charAt(2));
+
 return NameParts;

@@ -51,7 +51,7 @@ class MylangeInterpreter:
     def interpret(this, string:str, overrideClean:bool=False) -> any:
         try:
             return this.interpret_logic(string, overrideClean)
-        except LanErrors.MemoryMissingError as exception:
+        except LanErrors.MylangeError as exception:
             AnsiColor.println(f"Fatal Error: {exception.message}", AnsiColor.BRIGHT_RED)
             return None
 
@@ -78,7 +78,7 @@ class MylangeInterpreter:
             elif re.search(LanRe.VariableDecleration, line):
                 m = re.match(LanRe.VariableDecleration, line)
                 #globally:bool = m.group(1)=="global"
-                typeid:str = LanTypes.from_string(m.group(2))
+                typeid:int = LanTypes.from_string(m.group(2))
                 name:str = m.group(3)
                 #protected:bool = m.group(4).count('>') == 2
                 value_str:str = m.group(5)
@@ -183,6 +183,14 @@ class MylangeInterpreter:
             )
         elif re.search(LanRe.CachedString, part):
             return this.CleanCodeCache[part][1:-1]
+        elif re.search(LanRe.IndexedVariableName, part):
+            indexed_m = re.match(LanRe.IndexedVariableName, part)
+            if this.Booker.find(indexed_m.group(1)):
+                var:VariableValue = this.Booker.get(indexed_m.group(1))
+                if (LanTypes.is_indexable(var.typeid)):
+                    return var.value[int(indexed_m.group(2))]
+                else: raise LanErrors.NotIndexableError(f"Cannot Index non-indexable variable: {part}")
+            else: raise LanErrors.MemoryMissingError(f"Cannot find indexed variable by name: {part}")
         elif re.search(LanRe.VariableName, part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
                 return this.Booker.get(part).value
