@@ -2,13 +2,13 @@ array NameParts => ["Anthony", "Francis", "Smith"];
 
 string Name => NameParts.concat();
 
-dump_cache();
-
 print("Adding an element");
 
 NameParts.append("The Great", "The Powerfull");
 print(NameParts.concat());
 
-dump_cache();
+for string part in NameParts do {
+    print("Hey, " + part);
+};
 
 return NameParts;

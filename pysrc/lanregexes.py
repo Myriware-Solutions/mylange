@@ -13,6 +13,7 @@ class LanRe(StrEnum):
     ReturnStatement= r"^return *(.*)"
     FunctionStatement = r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)"
     ImportStatement = r"from +(\w+) +import +([\w, ]+)"
+    ForStatement = r"for +(\w+) +([a-zA-Z]+) +in +(.+) +do (.+)"
     # If/Else Statements
     IfStatementGeneral = r"if +\(.*\) +then +.*"
     IfElseStatement = r"if *\((.*)\) *then +(.*?) +else +(.*)"

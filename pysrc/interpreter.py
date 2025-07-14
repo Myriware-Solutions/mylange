@@ -109,7 +109,6 @@ class MylangeInterpreter:
                 operation:str = bool_m.group(2)
                 right:any = this.format_parameter(bool_m.group(3))
                 result:bool = LanBooleanStatementLogic.evaluate(left, operation, right)
-                #this.echo(f"Evaluation: {result}", indent=1)
                 # Do functions
                 if (result):
                     block = MylangeInterpreter(f"{this.BlockTree}/IfTrue", this.LineNumber)
@@ -127,6 +126,13 @@ class MylangeInterpreter:
                 function_code_string = m.group(4)
                 funct = FunctionStatement(function_name, return_type, function_parameters_string, function_code_string)
                 this.Fuctions[function_name] = funct
+            elif re.search(LanRe.ForStatement, line):
+                m = re.match(LanRe.ForStatement, line)
+                loop_var = f"{m.group(1).strip()} {m.group(2).strip()}"
+                loop_over:list = this.format_parameter(m.group(3))
+                loop_do_str:str = m.group(4)
+                loop_funct = FunctionStatement("ForLoop", "nil", loop_var, loop_do_str)
+                for item in loop_over: loop_funct.execute(this, [item])
             elif re.search(LanRe.FunctionOrMethodCall, line):
                 this.do_function_or_method(line)
             elif re.search(LanRe.CachedBlock, line):
@@ -227,7 +233,7 @@ class FunctionStatement:
             this.Parameters[set_parts[1]] = LanTypes.from_string(set_parts[0])
         this.Code = fCode
     
-    def execute(this, parent:MylangeInterpreter, params) -> any:
+    def execute(this, parent:MylangeInterpreter, params:list) -> any:
         container = MylangeInterpreter(f"Funct\\{this.Name}")
         container.make_child_block(None, parent.CleanCodeCache)
         for i, param in enumerate(this.Parameters.items()):
