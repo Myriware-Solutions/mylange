@@ -1,6 +1,7 @@
 # IMPORTS
 import sys
 from interpreter import MylangeInterpreter
+from interface import AnsiColor
 # Entry point for using the CLI
 linear:bool=False
 params:list[str] = sys.argv
@@ -11,14 +12,15 @@ else: linear = True
 
 if not linear:
     structure:MylangeInterpreter = MylangeInterpreter("Main")
+    if "--echos" in params: structure.enable_echos()
     with open(file_name, "r") as f:
         r = structure.interpret(f.read())
-        print(f"\033[32mReturned with: {r}\033[0m")
+        AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)
 else:
     print("Welcome to Mylange Linear Interface!")
     mi = MylangeInterpreter("Linear")
     while True:
-        input_str:str = input("> ")
+        input_str:str = input(AnsiColor.colorize("> ", AnsiColor.MAGENTA))
         if input_str == "exit": break
         mi.interpret(input_str)
-    print("Goodbye! :)")
+    AnsiColor.println(f"Goodbye! :)", AnsiColor.CYAN)

@@ -48,9 +48,9 @@ class RandomTypeConversions:
     @staticmethod
     def get_type(string:str) -> tuple[int, int]:
         # Boolean Found
-        if (string in ["true", "True", "t", "T", "yes", "Yes"]):
+        if (string == "true"):
             return (1, 1)
-        elif (string in ["false", "False", "f", "F", "no", "No"]):
+        elif (string == "false"):
             return (1, 0)
         # Int Found
         try:

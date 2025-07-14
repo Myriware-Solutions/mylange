@@ -1,7 +1,7 @@
 # IMPORTS
 import re
 
-from regexes import LanRe
+from lanregexes import LanRe
 from lantypes import RandomTypeConversions
 # Handles Arithmetics of All kinds
 class LanArithmetics:

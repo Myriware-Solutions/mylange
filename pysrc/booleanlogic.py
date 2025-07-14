@@ -3,7 +3,7 @@ import re
 
 from memory import MemoryBooker
 from lantypes import RandomTypeConversions
-from regexes import LanRe
+from lanregexes import LanRe
 #from interpreter import MylangeInterpreter
 # Class to Handle Boolean Logic Statements
 class LanBooleanStatementLogic:

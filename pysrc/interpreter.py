@@ -3,12 +3,14 @@ import re
 import json
 import copy
 
-from regexes import LanRe
+from lanregexes import LanRe
 from memory import MemoryBooker
 from lantypes import LanTypes, VariableValue, RandomTypeConversions
 from booleanlogic import LanBooleanStatementLogic
 from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions
+from lanerrors import LanErrors
+from interface import AnsiColor
 # GLOBALS
 FILE_EXT:str = ".my"
 # Main Mylange Class
@@ -30,7 +32,7 @@ class MylangeInterpreter:
         print(f"{indentation}\033[36m[{this.LineNumber}:{origin}:{this.BlockTree}]\033[0m ", text)
 
     def __init__(this, blockTree:str, startingLineNumber:int=0, startBlockCacheNumber=0) -> None:
-        print("\033[33m<Creating Interpreter Class>\033[0m")
+        #print("\033[33m<Creating Interpreter Class>\033[0m")
         this.Booker = MemoryBooker()
         this.CleanCodeCache = {}
         this.BlockTree = blockTree
@@ -47,6 +49,13 @@ class MylangeInterpreter:
         this.echo("Converting to Child Process")
 
     def interpret(this, string:str, overrideClean:bool=False) -> any:
+        try:
+            return this.interpret_logic(string, overrideClean)
+        except LanErrors.MemoryMissingError as exception:
+            AnsiColor.println(f"Fatal Error: {exception.message}", AnsiColor.BRIGHT_RED)
+            return None
+
+    def interpret_logic(this, string:str, overrideClean:bool=False) -> any:
         lines:list[str] = this.make_chucks(string, overrideClean, this.StartBlockCacheNumber)
         Return:any = None
         for line in lines:
@@ -99,9 +108,13 @@ class MylangeInterpreter:
                     when_true = m.group(2)
                 else:
                     raise Exception("IF/Else statement not configured right!")
-                #this.echo(f"Parts: {when_true}, {when_false}, {condition}", indent=1)
+                this.echo(f"Parts: {when_true}, {when_false}, {condition}", indent=1)
                 # Evaluate the statement
-                result:bool = LanBooleanStatementLogic.evalute_string(condition)
+                bool_m = re.match(LanRe.GeneralEqualityStatement, condition)
+                left:any = this.format_parameter(bool_m.group(1))
+                operation:str = bool_m.group(2)
+                right:any = this.format_parameter(bool_m.group(3))
+                result:bool = LanBooleanStatementLogic.evaluate(left, operation, right)
                 #this.echo(f"Evaluation: {result}", indent=1)
                 # Do functions
                 if (result):
@@ -136,10 +149,9 @@ class MylangeInterpreter:
     def make_chucks(this, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
         clean_code, clean_code_cache = CodeCleaner.cleanup_chunk(string, overrideClean, starBlockCacheNumber)
         this.CleanCodeCache.update(clean_code_cache)
-        if this.BlockTree == "Main":
-        #if True:
+        if (this.BlockTree == "Main") and this.EchosEnables:
             mem_blocks:list[str] = [f"{k} -> {v}" for k, v in this.CleanCodeCache.items()]
-            print(f"\033[34m[Code Lines]\n{clean_code}\n[Memory Units]\n{'\n'.join(mem_blocks)}\033[0m")
+            AnsiColor.println(f"[Code Lines]\n{clean_code}\n[Memory Units]\n{'\n'.join(mem_blocks)}", AnsiColor.BLUE)
         return [item for item in clean_code.split(";") if item != '']
     
     def make_parameter_list(this, string:str) -> list:
@@ -169,10 +181,16 @@ class MylangeInterpreter:
             )
         elif re.search(LanRe.CachedString, part):
             return this.CleanCodeCache[part][1:-1]
-        elif this.Booker.find(part):
-            return this.Booker.get(part).value
+        elif re.search(LanRe.VariableName, part) and (part not in this.SpecialValueWords):
+            if this.Booker.find(part):
+                return this.Booker.get(part).value
+            else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
         else:
             return RandomTypeConversions.convert(part)
+
+    # Certain variable-name capatible words that should not
+    # be ever treated like a variable.
+    SpecialValueWords:list[str] = ["nil", "true", "false"]
     
     def do_function_or_method(this, string:str) -> any:
         m = re.match(LanRe.FunctionOrMethodCall, string)
