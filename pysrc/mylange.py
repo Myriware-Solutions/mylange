@@ -12,7 +12,7 @@ else: linear = True
 
 if not linear:
     structure:MylangeInterpreter = MylangeInterpreter("Main")
-    if "--echos" in params: structure.enable_echos()
+    if "--echoes" in params: structure.enable_echos()
     with open(file_name, "r") as f:
         r = structure.interpret(f.read())
         AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)

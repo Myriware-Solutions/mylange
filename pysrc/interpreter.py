@@ -8,7 +8,7 @@ from memory import MemoryBooker
 from lantypes import LanTypes, VariableValue, RandomTypeConversions
 from booleanlogic import LanBooleanStatementLogic
 from lanarithmetic import LanArithmetics
-from builtinfunctions import MylangeBuiltinFunctions
+from builtinfunctions import MylangeBuiltinFunctions, VariableTypeMethods
 from lanerrors import LanErrors
 from interface import AnsiColor
 # GLOBALS
@@ -77,20 +77,14 @@ class MylangeInterpreter:
                     this.CleanCodeCache.update(mi.CleanCodeCache)
             elif re.search(LanRe.VariableDecleration, line):
                 m = re.match(LanRe.VariableDecleration, line)
-                globally:bool = m.group(1)=="global"
+                #globally:bool = m.group(1)=="global"
                 typeid:str = LanTypes.from_string(m.group(2))
                 name:str = m.group(3)
-                protected:bool = m.group(4).count('>') == 2
+                #protected:bool = m.group(4).count('>') == 2
                 value_str:str = m.group(5)
                 value:VariableValue = VariableValue(typeid)
-                if re.search(LanRe.FunctionOrMethodCall, value_str):
-                    result:any = this.do_function_or_method(value_str)
-                    value.value = result
-                elif re.search(LanRe.CachedString, value_str):
-                    value.value = this.CleanCodeCache[value_str][1:-1]
-                else:
-                    value.value = this.format_parameter(value_str)
-                #this.echo(f"This is a Variable Declaration! {globally} {protected} {typeid} {name} {value_str}", indent=1)
+                value.value = this.format_parameter(value_str)
+                this.echo(f"This is a Variable Declaration! {name}@{typeid}({m.group(2)}) {value.value}", indent=1)
                 this.Booker.set(name, value)
             elif re.search(LanRe.IfStatementGeneral, line):
                 # Match to correct if/else block
@@ -163,7 +157,9 @@ class MylangeInterpreter:
     
     def format_parameter(this, part:str) -> any:
         part = part.strip()
-        if re.search(LanRe.FunctionOrMethodCall, part):
+        if RandomTypeConversions.get_type(part)[0] != 0:
+            return RandomTypeConversions.convert(part, this)
+        elif re.search(LanRe.FunctionOrMethodCall, part):
             return this.do_function_or_method(part)
         elif re.search(LanRe.GeneralEqualityStatement, part):
             m = re.match(LanRe.GeneralEqualityStatement, part)
@@ -186,7 +182,7 @@ class MylangeInterpreter:
                 return this.Booker.get(part).value
             else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
         else:
-            return RandomTypeConversions.convert(part)
+            return RandomTypeConversions.convert(part, this)
 
     # Certain variable-name capatible words that should not
     # be ever treated like a variable.
@@ -196,12 +192,26 @@ class MylangeInterpreter:
         m = re.match(LanRe.FunctionOrMethodCall, string)
         function_or_method:str = m.group(1)
         parameter_blob:str = m.group(2)
+        parameters_formated = this.make_parameter_list(parameter_blob)
         if MylangeBuiltinFunctions.is_builtin(function_or_method):
-            return MylangeBuiltinFunctions.fire_builtin(this.Booker, function_or_method, this.make_parameter_list(parameter_blob))
+            return MylangeBuiltinFunctions.fire_builtin(this.Booker, function_or_method, parameters_formated)
         elif function_or_method in this.Fuctions.keys():
             parameters = this.make_parameter_list(parameter_blob)
             r = this.Fuctions[function_or_method].execute(this, parameters)
             return r
+        elif '.' in function_or_method:
+            # Indicates Method call
+            nodes:list[str] = function_or_method.split('.')
+            # Decide whether the first node is a variable, or class
+            if this.Booker.find(nodes[0]):
+                # Call a type method on the variable
+                var = this.Booker.get(nodes[0])
+                print("Node here", var)
+                r = VariableTypeMethods.fire_variable_method(nodes[1], var, parameters_formated)
+                return r
+            else:
+                #TODO: Find the class, then do the method
+                pass
         else: raise Exception(f"Cannot Find this Function/Method: {function_or_method}")
 
 class FunctionStatement:

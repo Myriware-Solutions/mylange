@@ -31,7 +31,7 @@ class VariableValue:
 
 class RandomTypeConversions:
     @staticmethod
-    def convert(string:str) -> None|bool|int|str:
+    def convert(string:str, mylangeInterpreter=None) -> any:
         typeid, other = RandomTypeConversions.get_type(string)
         match (typeid):
             case 0:
@@ -44,6 +44,14 @@ class RandomTypeConversions:
                 return int(string)
             case 3:
                 return string[1:-1]
+            case 4:
+                insides:str = string[1:-1]
+                from interpreter import MylangeInterpreter, CodeCleaner
+                mi:MylangeInterpreter = mylangeInterpreter
+                parts:list[str] = [item.strip() for item in CodeCleaner.split_top_level_commas(insides)]
+                r = [mi.format_parameter(item) for item in parts]
+                return r
+
 
     @staticmethod
     def get_type(string:str) -> tuple[int, int]:
@@ -60,6 +68,9 @@ class RandomTypeConversions:
         # String Found
         if (string.startswith('"')) and (string.endswith('"')):
             return (3, 0)
+        # Array Found
+        if (string.startswith('[')) and (string.endswith(']')):
+            return (4, 0)
         
         # No value found, returning Nil
         return (0, 0)
@@ -75,6 +86,9 @@ class LanTypes(IntEnum):
     boolean = 1
     integer = 2
     string  = 3
+    array   = 4
+    lset    = 5 #TODO: implement
+
     @staticmethod
     def is_valid_type(typeid:int):
         return typeid < 2
@@ -85,3 +99,4 @@ class LanTypes(IntEnum):
             case "boolean": return 1
             case "integer": return 2
             case "string": return 3
+            case "array": return 4
