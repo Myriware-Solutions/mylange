@@ -6,18 +6,14 @@ linear:bool=False
 params:list[str] = sys.argv
 file_name:str
 if (len(params) >= 2):
-    if params[1] == "--linear": linear = True
-    else: file_name = params[1]
-else:
-    file_name = input("file> ")
-    if (file_name == ""):
-        file_name = "debug.my"
-    elif (file_name == "--linear"): linear = True
+    file_name = params[1]
+else: linear = True
 
 if not linear:
     structure:MylangeInterpreter = MylangeInterpreter("Main")
     with open(file_name, "r") as f:
-        structure.interpret(f.read())
+        r = structure.interpret(f.read())
+        print(f"\033[32mReturned with: {r}\033[0m")
 else:
     print("Welcome to Mylange Linear Interface!")
     mi = MylangeInterpreter("Linear")

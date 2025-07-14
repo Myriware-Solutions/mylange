@@ -13,7 +13,10 @@ class MylangeBuiltinFunctions:
     @staticmethod
     def fire_builtin(booker:MemoryBooker, method_name:str, parmas:list) -> any:
         attribute = getattr(MylangeBuiltinFunctions, method_name)
-        return attribute(booker, *parmas)
+        try:
+            return attribute(booker, *parmas)
+        except:
+            print(*parmas)
 
     @staticmethod
     def dump_cache(booker:MemoryBooker, *params:any) -> None:
@@ -21,7 +24,7 @@ class MylangeBuiltinFunctions:
             print(f"{k} => {v[1].value}")
 
     @staticmethod
-    def print(booker:MemoryBooker, *params:any) -> None:
+    def print(_, *params:any) -> None:
         for param in list(params): print(param)
 
     @staticmethod

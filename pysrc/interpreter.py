@@ -7,39 +7,66 @@ from regexes import LanRe
 from memory import MemoryBooker
 from lantypes import LanTypes, VariableValue, RandomTypeConversions
 from booleanlogic import LanBooleanStatementLogic
+from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions
+# GLOBALS
+FILE_EXT:str = ".my"
 # Main Mylange Class
 class MylangeInterpreter:
     Booker:MemoryBooker
     CleanCodeCache:dict[str,str]
     BlockTree:str
     LineNumber:int
+    StartBlockCacheNumber:int
+    EchosEnables:bool = False
+
+    def enable_echos(this) -> None:
+        this.EchosEnables = True
+    
     def echo(this, text:str, origin:str="MyIn", indent:int=0) -> None:
+        if not this.EchosEnables: return
         indent += this.BlockTree.count('/')
         indentation:str = '\t'*indent
         print(f"{indentation}\033[36m[{this.LineNumber}:{origin}:{this.BlockTree}]\033[0m ", text)
 
-    def __init__(this, blockTree:str, startingLineNumber:int=0) -> None:
-        print("Creating Interpreter Class")
+    def __init__(this, blockTree:str, startingLineNumber:int=0, startBlockCacheNumber=0) -> None:
+        print("\033[33m<Creating Interpreter Class>\033[0m")
         this.Booker = MemoryBooker()
         this.CleanCodeCache = {}
         this.BlockTree = blockTree
         this.LineNumber = startingLineNumber
+        this.StartBlockCacheNumber = startBlockCacheNumber
+        this.Fuctions:dict[str,FunctionStatement] = {}
 
     def make_child_block(this, booker:MemoryBooker, cache:dict[str,str]) -> None:
         # IF these are set dirrectly, then they will allow
         # the blocks to make changes to the master's data,
         # which may not be the funcionally wanted
-        this.Booker = copy.deepcopy(booker)
+        if (booker != None): this.Booker = copy.deepcopy(booker)
         this.CleanCodeCache = copy.deepcopy(cache)
         this.echo("Converting to Child Process")
 
-    def interpret(this, string:str, overrideClean:bool=False) -> int:
-        lines:list[str] = this.make_chucks(string, overrideClean)
+    def interpret(this, string:str, overrideClean:bool=False) -> any:
+        lines:list[str] = this.make_chucks(string, overrideClean, this.StartBlockCacheNumber)
+        Return:any = None
         for line in lines:
             this.echo(line, "MyInLoop")
             # Match the type of line
-            if re.search(LanRe.VariableDecleration, line):
+            if re.search(LanRe.ImportStatement, line):
+                m = re.match(LanRe.ImportStatement, line)
+                file_name:str = m.group(1) + FILE_EXT
+                this.echo(f"Importing from {file_name}", "Importer")
+                function_bloc:str = m.group(2)
+                functions = [funct.strip() for funct in function_bloc.split(",")]
+                # Setup Vitual envirement
+                mi = MylangeInterpreter(f"Imports\\{m.group(1)}", startBlockCacheNumber=len([item for item in this.CleanCodeCache.keys() if item.startswith("0x")]))
+                mi.make_child_block(None, this.CleanCodeCache)
+                with open(file_name, 'r') as imports_file:
+                    mi.interpret(imports_file.read())
+                    for funct_name in functions:
+                        this.Fuctions[funct_name] = mi.Fuctions[funct_name]
+                    this.CleanCodeCache.update(mi.CleanCodeCache)
+            elif re.search(LanRe.VariableDecleration, line):
                 m = re.match(LanRe.VariableDecleration, line)
                 globally:bool = m.group(1)=="global"
                 typeid:str = LanTypes.from_string(m.group(2))
@@ -47,12 +74,13 @@ class MylangeInterpreter:
                 protected:bool = m.group(4).count('>') == 2
                 value_str:str = m.group(5)
                 value:VariableValue = VariableValue(typeid)
-                value.from_string(m.group(5))
-                if (value.value == None) and re.search(LanRe.FunctionOrMethodCall, value_str):
+                if re.search(LanRe.FunctionOrMethodCall, value_str):
                     result:any = this.do_function_or_method(value_str)
                     value.value = result
-                elif (value.value == None) and re.search(LanRe.CachedString, value_str):
+                elif re.search(LanRe.CachedString, value_str):
                     value.value = this.CleanCodeCache[value_str][1:-1]
+                else:
+                    value.value = this.format_parameter(value_str)
                 #this.echo(f"This is a Variable Declaration! {globally} {protected} {typeid} {name} {value_str}", indent=1)
                 this.Booker.set(name, value)
             elif re.search(LanRe.IfStatementGeneral, line):
@@ -73,7 +101,7 @@ class MylangeInterpreter:
                     raise Exception("IF/Else statement not configured right!")
                 #this.echo(f"Parts: {when_true}, {when_false}, {condition}", indent=1)
                 # Evaluate the statement
-                result:bool = LanBooleanStatementLogic.evaluate(condition, None)
+                result:bool = LanBooleanStatementLogic.evalute_string(condition)
                 #this.echo(f"Evaluation: {result}", indent=1)
                 # Do functions
                 if (result):
@@ -84,36 +112,67 @@ class MylangeInterpreter:
                     block = MylangeInterpreter(f"{this.BlockTree}/IfFalse", this.LineNumber)
                     block.make_child_block(this.Booker, this.CleanCodeCache)
                     block.interpret(when_false, True)
+            elif re.search(LanRe.FunctionStatement, line):
+                m = re.match(LanRe.FunctionStatement, line)
+                return_type:str = m.group(1)
+                function_name:str = m.group(2)
+                function_parameters_string = m.group(3)
+                function_code_string = m.group(4)
+                funct = FunctionStatement(function_name, return_type, function_parameters_string, function_code_string)
+                this.Fuctions[function_name] = funct
             elif re.search(LanRe.FunctionOrMethodCall, line):
                 this.do_function_or_method(line)
-                #this.echo("This is a Function or Method Declaration!", indent=1)
-                #TODO
             elif re.search(LanRe.CachedBlock, line):
-                this.interpret(this.CleanCodeCache[line.strip()], True)
+                r = this.interpret(this.CleanCodeCache[line.strip()], True)
+                if (r != None): Return = r
+            elif re.search(LanRe.ReturnStatement, line):
+                # Last thing, return forced
+                m = re.match(LanRe.ReturnStatement, line)
+                Return = this.format_parameter(m.group(1))
+                return Return
             this.LineNumber += 1
-        #print(json.dumps(this.Booker.Registry, cls=MylangeClassEncoder))
+        return Return
 
-    def make_chucks(this, string:str, overrideClean:bool=False) -> list[str]:
-        clean_code, clean_code_cache = CodeCleaner.cleanup_chunk(string, overrideClean)
+    def make_chucks(this, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
+        clean_code, clean_code_cache = CodeCleaner.cleanup_chunk(string, overrideClean, starBlockCacheNumber)
         this.CleanCodeCache.update(clean_code_cache)
         if this.BlockTree == "Main":
-            print(f"\033[34m {clean_code} \n {json.dumps(this.CleanCodeCache)} \033[0m")
+        #if True:
+            mem_blocks:list[str] = [f"{k} -> {v}" for k, v in this.CleanCodeCache.items()]
+            print(f"\033[34m[Code Lines]\n{clean_code}\n[Memory Units]\n{'\n'.join(mem_blocks)}\033[0m")
         return [item for item in clean_code.split(";") if item != '']
     
     def make_parameter_list(this, string:str) -> list:
-        commas_seperated:list[str] = string.split(",")
+        commas_seperated:list[str] = CodeCleaner.split_top_level_commas(string)
         parts:list = []
         for part in commas_seperated:
-            part = part.strip()
-            tryed = RandomTypeConversions.convert(part)
-            if (tryed == None) and this.Booker.find(part):
-                parts.append(this.Booker.get(part).value)
-            elif (tryed == None) and re.search(LanRe.FunctionOrMethodCall, part):
-                parts.append(this.do_function_or_method(part))
-            elif (tryed == None) and re.search(LanRe.CachedString, part):
-                parts.append(this.CleanCodeCache[part][1:-1])
-            else: parts.append(tryed)
+            parts.append(this.format_parameter(part))
         return parts
+    
+    def format_parameter(this, part:str) -> any:
+        part = part.strip()
+        if re.search(LanRe.FunctionOrMethodCall, part):
+            return this.do_function_or_method(part)
+        elif re.search(LanRe.GeneralEqualityStatement, part):
+            m = re.match(LanRe.GeneralEqualityStatement, part)
+            return LanBooleanStatementLogic.evaluate(
+                this.format_parameter(m.group(1)),
+                m.group(2),
+                this.format_parameter(m.group(3))
+            )
+        elif re.search(LanRe.GeneralArithmetics, part):
+            m = re.match(LanRe.GeneralArithmetics, part)
+            return LanArithmetics.evaluate(
+                this.format_parameter(m.group(1)),
+                m.group(2),
+                this.format_parameter(m.group(3))
+            )
+        elif re.search(LanRe.CachedString, part):
+            return this.CleanCodeCache[part][1:-1]
+        elif this.Booker.find(part):
+            return this.Booker.get(part).value
+        else:
+            return RandomTypeConversions.convert(part)
     
     def do_function_or_method(this, string:str) -> any:
         m = re.match(LanRe.FunctionOrMethodCall, string)
@@ -121,15 +180,42 @@ class MylangeInterpreter:
         parameter_blob:str = m.group(2)
         if MylangeBuiltinFunctions.is_builtin(function_or_method):
             return MylangeBuiltinFunctions.fire_builtin(this.Booker, function_or_method, this.make_parameter_list(parameter_blob))
+        elif function_or_method in this.Fuctions.keys():
+            parameters = this.make_parameter_list(parameter_blob)
+            r = this.Fuctions[function_or_method].execute(this, parameters)
+            return r
         else: raise Exception(f"Cannot Find this Function/Method: {function_or_method}")
+
+class FunctionStatement:
+    Name:str
+    ReturnType:int
+    Parameters:dict[str,int] = {}
+    Code:str
+    def __init__(this, fName:str, fReturnType:str, fParamString:str, fCode:str):
+        this.Name = fName
+        this.ReturnType = LanTypes.from_string(fReturnType)
+        for set in fParamString.split(","):
+            set_parts = set.strip().split(" ")
+            this.Parameters[set_parts[1]] = LanTypes.from_string(set_parts[0])
+        this.Code = fCode
+    
+    def execute(this, parent:MylangeInterpreter, params) -> any:
+        container = MylangeInterpreter(f"Funct\\{this.Name}")
+        container.make_child_block(None, parent.CleanCodeCache)
+        for i, param in enumerate(this.Parameters.items()):
+            varval = VariableValue(param[1])
+            varval.value = params[i] #TODO: Ensure values match
+            container.Booker.set(param[0], varval)
+        r = container.interpret(this.Code, True)
+        return r
+
+
 # Pre-processes code into interpreter-efficient executions
 class CodeCleaner:
     "Converts a string of Mylange code into a execution-ready code blob."
-
-    #(U+00A7) §
-
+    
     @staticmethod
-    def cleanup_chunk(string:str, preventConfine:bool=False):
+    def cleanup_chunk(string:str, preventConfine:bool=False, startBlockNumber:int=0):
         clean_code:str = CodeCleaner.remove_comments(string)
         cache:dict[str,str] = {}
         if not preventConfine:
@@ -137,7 +223,7 @@ class CodeCleaner:
             clean_code, qoute_cache = CodeCleaner.confine_qoutes(clean_code)
             cache.update(qoute_cache)
             # then, remove all blocks
-            clean_code, block_cache = CodeCleaner.confine_brackets(clean_code)
+            clean_code, block_cache = CodeCleaner.confine_brackets(clean_code, startBlockNumber=startBlockNumber)
             cache.update(block_cache)
         clean_code = clean_code.replace('\n', '')
         return clean_code, cache
@@ -150,9 +236,9 @@ class CodeCleaner:
 
     # thanks ChatGPT
     @staticmethod
-    def confine_brackets(s, index_tracker=None, block_dict=None):
+    def confine_brackets(s, index_tracker=None, block_dict=None, startBlockNumber=0):
         if index_tracker is None:
-            index_tracker = {'index': 0}
+            index_tracker = {'index': startBlockNumber}
         if block_dict is None:
             block_dict = {}
 
@@ -182,6 +268,7 @@ class CodeCleaner:
 
                         # remove all return lines, begining spaces, extra spaces, etc.
                         cleaned_block = re.sub(r"^ +", '', replaced_inner, flags=re.MULTILINE)
+                        cleaned_block = re.sub(r"\n", '', cleaned_block, flags=re.MULTILINE)
                         cleaned_block = re.sub(r" +", ' ', cleaned_block, flags=re.MULTILINE)
 
                         hex_key = f"0x{index_tracker['index']:X}"
@@ -235,6 +322,29 @@ class CodeCleaner:
 
         result.append(s[last_index:])
         return ''.join(result), blocks
+    
+    @staticmethod
+    def split_top_level_commas(s) -> list[str]:
+        result = []
+        depth = 0
+        current = []
+
+        for char in s:
+            if char == ',' and depth == 0:
+                result.append(''.join(current))
+                current = []
+            else:
+                if char == '(':
+                    depth += 1
+                elif char == ')':
+                    depth -= 1
+                current.append(char)
+
+        if current:
+            result.append(''.join(current))
+
+        return result
+
 # Custom JSON Encoder
 class MylangeClassEncoder(json.JSONEncoder):
     def default(self, obj):

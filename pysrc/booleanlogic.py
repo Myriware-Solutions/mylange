@@ -1,8 +1,9 @@
 # IMPORTS
 import re
-from enum import StrEnum
+
 from memory import MemoryBooker
 from lantypes import RandomTypeConversions
+from regexes import LanRe
 #from interpreter import MylangeInterpreter
 # Class to Handle Boolean Logic Statements
 class LanBooleanStatementLogic:
@@ -15,19 +16,16 @@ class LanBooleanStatementLogic:
         ">=": lambda l, r: l >= r
     }
     @staticmethod
-    def evaluate(string:str, masterBooker:MemoryBooker) -> bool:
+    def evalute_string(string:str) -> any:
         # Check against Equality (==, <, <=, >, >=, !=)
-        if re.search(BooleanStatements.GeneralEqualityStatement, string):
-            m = re.match(BooleanStatements.GeneralEqualityStatement, string)
+        if re.search(LanRe.GeneralEqualityStatement, string):
+            m = re.match(LanRe.GeneralEqualityStatement, string)
             #TODO: Convert these into Antomonus Casted values
             left = RandomTypeConversions.convert(m.group(1))
             operation = m.group(2)
             right = RandomTypeConversions.convert(m.group(3))
-            return LanBooleanStatementLogic.LambdaOperations[operation](left, right)
-        # Check against singles
-        pass
-
-
-
-class BooleanStatements(StrEnum):
-    GeneralEqualityStatement = r"(.*?) *([=<>!]+) *(.*)"
+            return LanBooleanStatementLogic.evaluate(left, operation, right)
+        else: raise Exception("Boolean Evaluation cannot be preformed on this string.")
+    @staticmethod
+    def evaluate(left:any, operation:str, right:any) -> bool:
+        return LanBooleanStatementLogic.LambdaOperations[operation](left, right)

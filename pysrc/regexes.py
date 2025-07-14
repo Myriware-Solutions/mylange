@@ -9,7 +9,14 @@ class LanRe(StrEnum):
     CachedBlock = r"(0x[a-fA-F0-9]+)"
     CachedChar = r"(1x[a-fA-F0-9]+)"
     CachedString = r"(2x[a-fA-F0-9]+)"
+    ReturnStatement= r"^return *(.*)"
+    FunctionStatement = r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)"
+    ImportStatement = r"from +(\w+) +import +([\w, ]+)"
     # If/Else Statements
     IfStatementGeneral = r"if +\(.*\) +then +.*"
     IfElseStatement = r"if *\((.*)\) *then +(.*?) +else +(.*)"
     IfStatement = r"if *\((.*)\) *then +(.*)"
+    # Boolean
+    GeneralEqualityStatement = r"(.*?) *([=<>!]+) *(.*)"
+    # Arithmetics
+    GeneralArithmetics = r"(.*?) *([+\-*\/]+) *(.*)"

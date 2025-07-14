@@ -1,1 +1,0 @@
-python3 term.py debug.my
