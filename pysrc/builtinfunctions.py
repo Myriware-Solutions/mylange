@@ -23,7 +23,7 @@ class MylangeBuiltinFunctions:
     @staticmethod
     def dump_cache(booker:MemoryBooker, *params:any) -> None:
         for k, v in booker.Registry.items():
-            AnsiColor.println(f"{k} => {v[1].value} @ {v[1].typeid}", AnsiColor.BRIGHT_BLUE)
+            AnsiColor.println(f"{k} @ {v[1].typeid} => {v[1]}", AnsiColor.BRIGHT_BLUE)
 
     @staticmethod
     def print(_, *params:any) -> None:

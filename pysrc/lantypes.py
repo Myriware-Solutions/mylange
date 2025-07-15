@@ -5,46 +5,62 @@ from enum import IntEnum, Enum
 class VariableValue:
     typeid:int
     value:any
-    def __init__(this, typeid:int):
+    def __init__(this, typeid:int, value:any=None):
         # if not LanTypes.is_valid_type(typeid):
         #     raise NotValidType()
         this.typeid = typeid
+        if (value): this.value = value
 
     def __str__(this):
+        match (this.typeid):
+            case LanTypes.integer:
+                return f"{this.value}"
+            case LanTypes.string:
+                return f'"{this.value}"'
+            case LanTypes.array:
+                larray = [f"{item}" for item in this.value]
+                return f"[{', '.join(larray)}]"
+            case LanTypes.set:
+                lset = [f"{k}:{v}" for k, v in this.value.items()]
+                return f"({', '.join(lset)})"
         return f"<{this.value}@{this.typeid}>"
 
 class RandomTypeConversions:
     @staticmethod
-    def convert(string:str, mylangeInterpreter=None) -> any:
+    def convert(string:str, mylangeInterpreter=None) -> VariableValue:
         typeid, other = RandomTypeConversions.get_type(string)
         match (typeid):
             case LanTypes.nil:
-                return None
+                return VariableValue(LanTypes.nil, None)
             case LanTypes.boolean if other == 0:
-                return False
+                return VariableValue(LanTypes.boolean, False)
             case LanTypes.boolean if other == 1:
-                return True
+                return VariableValue(LanTypes.boolean, True)
             case LanTypes.integer:
-                return int(string)
+                return VariableValue(LanTypes.integer, int(string))
             case LanTypes.character | LanTypes.string:
-                return string[1:-1]
+                return VariableValue(LanTypes.string, string[1:-1])
             case LanTypes.array:
                 insides:str = string[1:-1]
                 from interpreter import MylangeInterpreter, CodeCleaner
                 mi:MylangeInterpreter = mylangeInterpreter
                 parts:list[str] = [item.strip() for item in CodeCleaner.split_top_level_commas(insides)]
-                r = [mi.format_parameter(item) for item in parts]
-                return r
+                ReturnL:list = []
+                for item in parts:
+                    var = mi.format_parameter(item)
+                    ReturnL.append(var)
+                return VariableValue(LanTypes.array, ReturnL)
             case LanTypes.set:
                 insides:str = string[1:-1]
                 from interpreter import MylangeInterpreter, CodeCleaner
                 mi:MylangeInterpreter = mylangeInterpreter
                 parts:list[str] = [item.strip() for item in CodeCleaner.split_top_level_commas(insides)]
-                Return:dict = {}
+                ReturnS:dict = {}
                 for part in parts:
                     key_value = part.split('=>', 1)
-                    Return[key_value[0]] = mi.format_parameter(key_value[1])
-                return Return
+                    var = mi.format_parameter(key_value[1])
+                    ReturnS[key_value[0]] = var
+                return VariableValue(LanTypes.set, ReturnS)
 
     @staticmethod
     def get_type(string:str) -> tuple[int, int]:

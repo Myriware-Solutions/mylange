@@ -1,2 +1,5 @@
+string name => "Anthony";
 set example => (name=>"Anthony", last=>"smith");
+array ex => [1, 2, 3];
+dump_cache();
 print(example:name)

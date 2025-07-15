@@ -5,6 +5,7 @@ from enum import StrEnum
 class LanRe(StrEnum):
     # Line Recongition
     VariableDecleration = r"^(global|local)? *([a-zA-Z\[\]]+) +(\w+) *=(>+) *(.*) *"
+    VariableStructure = r"^([a-zA-Z]\w*)([\[\]:\w]+)?"
     VariableName = r"^([a-zA-Z]\w*)"
     IndexedVariableName = r"^([a-zA-Z]\w*)\[(\d+)\]"
     SetIndexedVariableName = r"^([a-zA-Z]\w*):(\w+)"

@@ -86,9 +86,9 @@ class MylangeInterpreter:
                 name:str = m.group(3)
                 #protected:bool = m.group(4).count('>') == 2
                 value_str:str = m.group(5)
-                value:VariableValue = VariableValue(typeid)
-                value.value = this.format_parameter(value_str)
-                this.echo(f"This is a Variable Declaration! {name}@{typeid}({m.group(2)}) {value.value}", indent=1)
+                #value:VariableValue = VariableValue(typeid)
+                value = this.format_parameter(value_str)
+                this.echo(f"This is a Variable Declaration! {name}@{typeid}({m.group(2)}) {value}", indent=1)
                 this.Booker.set(name, value)
             elif re.search(LanRe.IfStatementGeneral, line):
                 # Match to correct if/else block
@@ -179,7 +179,7 @@ class MylangeInterpreter:
             parts.append(this.format_parameter(part))
         return parts
     
-    def format_parameter(this, part:str) -> any:
+    def format_parameter(this, part:str) -> VariableValue:
         part = part.strip()
         this.echo(f"Consitering: {part}", anoyance=2)
         if RandomTypeConversions.get_type(part)[0] != 0:
@@ -189,53 +189,35 @@ class MylangeInterpreter:
         elif re.search(LanRe.GeneralEqualityStatement, part):
             m = re.match(LanRe.GeneralEqualityStatement, part)
             r = LanBooleanStatementLogic.evaluate(
-                this.format_parameter(m.group(1)),
+                this.format_parameter(m.group(1)).value,
                 m.group(2),
-                this.format_parameter(m.group(3))
+                this.format_parameter(m.group(3)).value
             )
             this.echo(f"Casted to Boolean Expression: {r}", anoyance=2)
-            return r
+            return VariableValue(LanTypes.boolean, r)
         elif re.search(LanRe.GeneralArithmetics, part):
             m = re.match(LanRe.GeneralArithmetics, part)
-            this.echo("Casted to Arithmetic Expression", anoyance=2)
-            return LanArithmetics.evaluate(
+            r = LanArithmetics.evaluate(
                 this.format_parameter(m.group(1)),
                 m.group(2),
                 this.format_parameter(m.group(3))
             )
-        
+            this.echo(f"Casted to Arithmetic Expression: {r}", anoyance=2)
+            return VariableValue(LanTypes.integer, r)
         elif re.search(LanRe.FunctionOrMethodCall, part):
             this.echo("Casted to Function/Method", anoyance=2)
             return this.do_function_or_method(part)
 
         elif re.search(LanRe.CachedString, part):
             this.echo("Casted to Cached String", anoyance=2)
-            return this.CleanCodeCache[part][1:-1]
-        elif re.search(LanRe.IndexedVariableName, part):
-            this.echo("Casted to Indexed Variable", anoyance=2)
-            indexed_m = re.match(LanRe.IndexedVariableName, part)
-            if this.Booker.find(indexed_m.group(1)):
-                var:VariableValue = this.Booker.get(indexed_m.group(1))
-                if (LanTypes.is_indexable(var.typeid)):
-                    return var.value[int(indexed_m.group(2))]
-                else: raise LanErrors.NotIndexableError(f"Cannot Index non-indexable variable: {part}")
-            else: raise LanErrors.MemoryMissingError(f"Cannot find indexed variable by name: {part}")
-
-        elif re.search(LanRe.SetIndexedVariableName, part):
-            set_indexed_m = re.match(LanRe.SetIndexedVariableName, part)
-            if this.Booker.find(set_indexed_m.group(1)):
-                var:VariableValue = this.Booker.get(set_indexed_m.group(1))
-                if (var.typeid == LanTypes.set):
-                    return var.value[set_indexed_m.group(2)]
-                else: raise LanErrors.NotIndexableError(f"Cannot Set Index non-indexable variable: {part}")
-            else: raise LanErrors.MemoryMissingError(f"Cannot find indexed variable by name: {part}")
-
-        elif re.search(LanRe.VariableName, part) and (part not in this.SpecialValueWords):
+            return VariableValue(LanTypes.string, this.CleanCodeCache[part][1:-1])
+        
+        elif re.search(LanRe.VariableStructure, part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
-                r = this.Booker.get(part).value
+                r = this.Booker.get(part)
                 this.echo(f"Casted to Variable: {r}", anoyance=2)
                 return r
-            else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
+            else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")         
         else:
             this.echo("Casted to Failsafe RandomType Conversion", anoyance=2)
             return RandomTypeConversions.convert(part, this)

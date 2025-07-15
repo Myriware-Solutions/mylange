@@ -1,5 +1,14 @@
+# IMPORTS
+import re
+
+from lanregexes import LanRe
+from lanerrors import LanErrors
 from lantypes import VariableValue
-from enum import IntEnum
+from enum import IntEnum, StrEnum
+
+class VarQuerryParts(StrEnum):
+    AllMacthes = r"(?::[a-zA-Z]\w+)|(?:\[\d+\])"
+
 # Runtime Memory Manager, aka Booker
 class MemoryBooker:
     Registry:dict[str, tuple[int, VariableValue]]
@@ -10,12 +19,28 @@ class MemoryBooker:
     def set(this, varName:str, value:VariableValue, *flags:list[int]):
         this.Registry[varName] = (sum(flags), value)
 
-    def get(this, varName:str):
-        return this.Registry[varName][1]
+    def get(this, varQuerry:str) -> VariableValue:
+        if not this.find(varQuerry): raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
+        m = re.match(LanRe.VariableStructure, varQuerry)
+
+        varin = this.Registry[m.group(1)][1]
+        print("Main var:", varin)
+        if m.group(2):
+            extention_m = re.findall(VarQuerryParts.AllMacthes, m.group(2))
+            for ext in extention_m:
+                print("Working in:", ext)
+                ext:str = ext
+                if ext.startswith(':'):
+                    varin = varin.value[ext[1:]]
+                elif ext.startswith('[') and ext.endswith(']'):
+                    varin = varin.value[int(ext[1:-1])]
+                else: raise Exception("This is not a vaild indexing approch.")
+        return varin
     
-    def find(this, varName:str) -> bool:
-        if varName in list(this.Registry.keys()): return True
-        return False
+    def find(this, varQuerry:str) -> bool:
+        m = re.match(LanRe.VariableStructure, varQuerry)
+        #if not m: raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
+        return (m != None) and (m.group(1) in this.Registry.keys())
 
 class VariableFlags(IntEnum):
     Protected = 1
