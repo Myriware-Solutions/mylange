@@ -28,7 +28,7 @@ class MylangeInterpreter:
     
     def echo(this, text:str, origin:str="MyIn", indent:int=0, anoyance:int=0) -> None:
         if not this.EchosEnables: return
-        if (anoyance > 1): return
+        if (anoyance > 6): return
         indent += this.BlockTree.count('/')
         indentation:str = '\t'*indent
         print(f"{indentation}\033[36m[{this.LineNumber}:{origin}:{this.BlockTree}]\033[0m ", text)
@@ -220,6 +220,16 @@ class MylangeInterpreter:
                     return var.value[int(indexed_m.group(2))]
                 else: raise LanErrors.NotIndexableError(f"Cannot Index non-indexable variable: {part}")
             else: raise LanErrors.MemoryMissingError(f"Cannot find indexed variable by name: {part}")
+
+        elif re.search(LanRe.SetIndexedVariableName, part):
+            set_indexed_m = re.match(LanRe.SetIndexedVariableName, part)
+            if this.Booker.find(set_indexed_m.group(1)):
+                var:VariableValue = this.Booker.get(set_indexed_m.group(1))
+                if (var.typeid == LanTypes.set):
+                    return var.value[set_indexed_m.group(2)]
+                else: raise LanErrors.NotIndexableError(f"Cannot Set Index non-indexable variable: {part}")
+            else: raise LanErrors.MemoryMissingError(f"Cannot find indexed variable by name: {part}")
+
         elif re.search(LanRe.VariableName, part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
                 r = this.Booker.get(part).value
@@ -301,7 +311,7 @@ class FunctionStatement:
             container.Booker.set(param[0], varval)
         r:any = None
         thorw_break = False
-        try:
+        try: 
             r = container.interpret(this.Code, True)
         except LanErrors.Break: thorw_break = True
         # Clear New Memory values, keeping old or altered ones

@@ -35,26 +35,38 @@ class RandomTypeConversions:
                 parts:list[str] = [item.strip() for item in CodeCleaner.split_top_level_commas(insides)]
                 r = [mi.format_parameter(item) for item in parts]
                 return r
-
+            case LanTypes.set:
+                insides:str = string[1:-1]
+                from interpreter import MylangeInterpreter, CodeCleaner
+                mi:MylangeInterpreter = mylangeInterpreter
+                parts:list[str] = [item.strip() for item in CodeCleaner.split_top_level_commas(insides)]
+                Return:dict = {}
+                for part in parts:
+                    key_value = part.split('=>', 1)
+                    Return[key_value[0]] = mi.format_parameter(key_value[1])
+                return Return
 
     @staticmethod
     def get_type(string:str) -> tuple[int, int]:
-        # Boolean Found
+        # Boolean 
         if (string == "true"):
             return (LanTypes.boolean, 1)
         elif (string == "false"):
             return (LanTypes.boolean, 0)
-        # Int Found
+        # Int 
         try:
             _ = int(string)
             return (LanTypes.integer, 0)
         except: pass
-        # String Found
+        # String 
         if (string.startswith('"')) and (string.endswith('"')):
             return (LanTypes.string, 0)
-        # Array Found
+        # Array 
         if (string.startswith('[')) and (string.endswith(']')):
             return (LanTypes.array, 0)
+        # Set
+        if (string.startswith('(')) and (string.endswith(')')):
+            return (LanTypes.set, 0)
         
         # No value found, returning Nil
         return (LanTypes.nil, 0)
@@ -65,7 +77,7 @@ class NotValidType(Exception):
         self.message = message
         super().__init__(self.message)
 
-TypeNameArray:list = ["nil", "boolean", "integer", "character", "string", "array", "lset"]
+TypeNameArray:list = ["nil", "boolean", "integer", "character", "string", "array", "set"]
 
 class LanTypes(IntEnum):
     nil       = 0
@@ -74,7 +86,7 @@ class LanTypes(IntEnum):
     character = 3
     string    = 4
     array     = 5
-    lset      = 6 #TODO: implement
+    set       = 6 #TODO: implement
 
     @staticmethod
     def is_valid_type(typeid:int):
@@ -82,7 +94,7 @@ class LanTypes(IntEnum):
     
     @staticmethod
     def is_indexable(typeid:int):
-        return (typeid == LanTypes.array) or (typeid == LanTypes.lset)
+        return (typeid == LanTypes.array)
     
     @staticmethod
     def from_string(typestring:str) -> int:

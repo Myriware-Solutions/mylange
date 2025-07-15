@@ -1,0 +1,2 @@
+set example => (name=>"Anthony", last=>"smith");
+print(example:name)
