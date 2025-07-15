@@ -13,4 +13,24 @@ for string part in NameParts do {
 
 print(Name.charAt(2));
 
+if (Name.charAt(2) == "E") then {
+    print("The Char is E");
+} else {
+    print("The Char is not E, it is " + Name.charAt(2));
+};
+
+dump_cache();
+
+integer I => 0;
+while (I <= 5) do {
+    string msg => "I am in a while loop: " + I.toString();
+    print(msg);
+
+    if (I == 3) then break;
+
+    I.add(1);
+};
+
+dump_cache();
+
 return NameParts;

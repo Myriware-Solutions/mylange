@@ -3,6 +3,7 @@ import inspect
 
 from memory import MemoryBooker
 from lantypes import VariableValue, LanTypes
+from interface import AnsiColor
 
 class MylangeBuiltinFunctions:
     @staticmethod
@@ -22,7 +23,7 @@ class MylangeBuiltinFunctions:
     @staticmethod
     def dump_cache(booker:MemoryBooker, *params:any) -> None:
         for k, v in booker.Registry.items():
-            print(f"{k} => {v[1].value} @ {v[1].typeid}")
+            AnsiColor.println(f"{k} => {v[1].value} @ {v[1].typeid}", AnsiColor.BRIGHT_BLUE)
 
     @staticmethod
     def print(_, *params:any) -> None:
@@ -40,6 +41,8 @@ class VariableTypeMethods:
     @staticmethod
     def get_type(i:int):
         match(i):
+            case LanTypes.integer:
+                return VariableTypeMethods.Interger
             case LanTypes.string:
                 return VariableTypeMethods.String
             case LanTypes.array:
@@ -64,6 +67,15 @@ class VariableTypeMethods:
             # except:
             #     print("Error occured for this method", *params)
         else: raise Exception(f"This method does not exist on this type: {method} @ {var.typeid}")
+
+    class Interger:
+        @staticmethod
+        def add(var:VariableValue, amount:int) -> None:
+            var.value = var.value + amount
+
+        @staticmethod
+        def toString(var:VariableValue) -> str:
+            return f"{var.value}"
 
     class String:
         @staticmethod

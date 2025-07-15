@@ -5,8 +5,8 @@ from enum import StrEnum
 class LanRe(StrEnum):
     # Line Recongition
     VariableDecleration = r"^(global|local)? *([a-zA-Z\[\]]+) +(\w+) *=(>+) *(.*) *"
-    VariableName = r"^([a-zA-Z]\w+)"
-    IndexedVariableName = r"^([a-zA-Z]\w+)\[(\d+)\]"
+    VariableName = r"^([a-zA-Z]\w*)"
+    IndexedVariableName = r"^([a-zA-Z]\w*)\[(\d+)\]"
     FunctionOrMethodCall = r"^([\w.]+) *\((.*)\)"
     CachedBlock = r"(0x[a-fA-F0-9]+)"
     CachedChar = r"(1x[a-fA-F0-9]+)"
@@ -15,6 +15,8 @@ class LanRe(StrEnum):
     FunctionStatement = r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)"
     ImportStatement = r"from +(\w+) +import +([\w, ]+)"
     ForStatement = r"for +(\w+) +([a-zA-Z]+) +in +(.+) +do (.+)"
+    WhileStatement = r"^while *\((.*)\) *do +(.*)"
+    BreakStatement = r"^break"
     # If/Else Statements
     IfStatementGeneral = r"if +\(.*\) +then +.*"
     IfElseStatement = r"if *\((.*)\) *then +(.*?) +else +(.*)"

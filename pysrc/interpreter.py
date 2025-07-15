@@ -2,6 +2,7 @@
 import re
 import json
 import copy
+import sys
 
 from lanregexes import LanRe
 from memory import MemoryBooker
@@ -25,8 +26,9 @@ class MylangeInterpreter:
     def enable_echos(this) -> None:
         this.EchosEnables = True
     
-    def echo(this, text:str, origin:str="MyIn", indent:int=0) -> None:
+    def echo(this, text:str, origin:str="MyIn", indent:int=0, anoyance:int=0) -> None:
         if not this.EchosEnables: return
+        if (anoyance > 1): return
         indent += this.BlockTree.count('/')
         indentation:str = '\t'*indent
         print(f"{indentation}\033[36m[{this.LineNumber}:{origin}:{this.BlockTree}]\033[0m ", text)
@@ -44,13 +46,15 @@ class MylangeInterpreter:
         # IF these are set dirrectly, then they will allow
         # the blocks to make changes to the master's data,
         # which may not be the funcionally wanted
-        if (booker != None): this.Booker = copy.deepcopy(booker)
+        # if (booker != None): this.Booker = copy.deepcopy(booker)
+        if (booker != None): this.Booker = booker
         this.CleanCodeCache = copy.deepcopy(cache)
         this.echo("Converting to Child Process")
 
     def interpret(this, string:str, overrideClean:bool=False) -> any:
         try:
             return this.interpret_logic(string, overrideClean)
+        except LanErrors.Break: raise LanErrors.Break()
         except LanErrors.MylangeError as exception:
             AnsiColor.println(f"Fatal Error: {exception.message}", AnsiColor.BRIGHT_RED)
             return None
@@ -104,11 +108,9 @@ class MylangeInterpreter:
                     raise Exception("IF/Else statement not configured right!")
                 this.echo(f"Parts: {when_true}, {when_false}, {condition}", indent=1)
                 # Evaluate the statement
-                bool_m = re.match(LanRe.GeneralEqualityStatement, condition)
-                left:any = this.format_parameter(bool_m.group(1))
-                operation:str = bool_m.group(2)
-                right:any = this.format_parameter(bool_m.group(3))
-                result:bool = LanBooleanStatementLogic.evaluate(left, operation, right)
+                result = this.format_parameter(condition)
+                if type(result) != bool:
+                    raise LanErrors.ConditionalNotBoolError(f"Cannot use this for boolean logic ({type(result)} {result}): {condition}")
                 # Do functions
                 if (result):
                     block = MylangeInterpreter(f"{this.BlockTree}/IfTrue", this.LineNumber)
@@ -132,12 +134,28 @@ class MylangeInterpreter:
                 loop_over:list = this.format_parameter(m.group(3))
                 loop_do_str:str = m.group(4)
                 loop_funct = FunctionStatement("ForLoop", "nil", loop_var, loop_do_str)
-                for item in loop_over: loop_funct.execute(this, [item])
+                try:
+                    for item in loop_over: loop_funct.execute(this, [item], True)
+                except LanErrors.Break: pass
+
+            elif re.search(LanRe.WhileStatement, line):
+                while_m = re.match(LanRe.WhileStatement, line)
+                while_condition = while_m.group(1).strip()
+                while_do_str = while_m.group(2).strip()
+                while_loop_funct = FunctionStatement("WhileLoop", "nil", "", while_do_str)
+                try:
+                    while this.format_parameter(while_condition):
+                        while_loop_funct.execute(this, [], True)
+                except LanErrors.Break: pass
+
             elif re.search(LanRe.FunctionOrMethodCall, line):
                 this.do_function_or_method(line)
             elif re.search(LanRe.CachedBlock, line):
                 r = this.interpret(this.CleanCodeCache[line.strip()], True)
                 if (r != None): Return = r
+            elif re.search(LanRe.BreakStatement, line):
+                this.echo("Break Called")
+                raise LanErrors.Break()
             elif re.search(LanRe.ReturnStatement, line):
                 # Last thing, return forced
                 m = re.match(LanRe.ReturnStatement, line)
@@ -163,27 +181,38 @@ class MylangeInterpreter:
     
     def format_parameter(this, part:str) -> any:
         part = part.strip()
+        this.echo(f"Consitering: {part}", anoyance=2)
         if RandomTypeConversions.get_type(part)[0] != 0:
+            this.echo("Casted to RandomType", anoyance=2)
             return RandomTypeConversions.convert(part, this)
-        elif re.search(LanRe.FunctionOrMethodCall, part):
-            return this.do_function_or_method(part)
+        
         elif re.search(LanRe.GeneralEqualityStatement, part):
             m = re.match(LanRe.GeneralEqualityStatement, part)
-            return LanBooleanStatementLogic.evaluate(
+            r = LanBooleanStatementLogic.evaluate(
                 this.format_parameter(m.group(1)),
                 m.group(2),
                 this.format_parameter(m.group(3))
             )
+            this.echo(f"Casted to Boolean Expression: {r}", anoyance=2)
+            return r
         elif re.search(LanRe.GeneralArithmetics, part):
             m = re.match(LanRe.GeneralArithmetics, part)
+            this.echo("Casted to Arithmetic Expression", anoyance=2)
             return LanArithmetics.evaluate(
                 this.format_parameter(m.group(1)),
                 m.group(2),
                 this.format_parameter(m.group(3))
             )
+        
+        elif re.search(LanRe.FunctionOrMethodCall, part):
+            this.echo("Casted to Function/Method", anoyance=2)
+            return this.do_function_or_method(part)
+
         elif re.search(LanRe.CachedString, part):
+            this.echo("Casted to Cached String", anoyance=2)
             return this.CleanCodeCache[part][1:-1]
         elif re.search(LanRe.IndexedVariableName, part):
+            this.echo("Casted to Indexed Variable", anoyance=2)
             indexed_m = re.match(LanRe.IndexedVariableName, part)
             if this.Booker.find(indexed_m.group(1)):
                 var:VariableValue = this.Booker.get(indexed_m.group(1))
@@ -193,10 +222,22 @@ class MylangeInterpreter:
             else: raise LanErrors.MemoryMissingError(f"Cannot find indexed variable by name: {part}")
         elif re.search(LanRe.VariableName, part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
-                return this.Booker.get(part).value
+                r = this.Booker.get(part).value
+                this.echo(f"Casted to Variable: {r}", anoyance=2)
+                return r
             else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
         else:
+            this.echo("Casted to Failsafe RandomType Conversion", anoyance=2)
             return RandomTypeConversions.convert(part, this)
+        
+    def evaluate_boolean(this, condition:str) -> bool:
+        if re.search(LanRe.GeneralEqualityStatement, condition):
+            bool_m = re.match(LanRe.GeneralEqualityStatement, condition)
+            left:any = this.format_parameter(bool_m.group(1))
+            operation:str = bool_m.group(2)
+            right:any = this.format_parameter(bool_m.group(3))
+            return LanBooleanStatementLogic.evaluate(left, operation, right)
+        
 
     # Certain variable-name capatible words that should not
     # be ever treated like a variable.
@@ -220,8 +261,9 @@ class MylangeInterpreter:
             if this.Booker.find(nodes[0]):
                 # Call a type method on the variable
                 var = this.Booker.get(nodes[0])
-                print("Node here", var)
+                this.echo(f"Node here {var}")
                 r = VariableTypeMethods.fire_variable_method(nodes[1], var, parameters_formated)
+                this.echo(f"Altr here {var}")
                 return r
             else:
                 #TODO: Find the class, then do the method
@@ -231,24 +273,42 @@ class MylangeInterpreter:
 class FunctionStatement:
     Name:str
     ReturnType:int
-    Parameters:dict[str,int] = {}
+    Parameters:dict[str,int]
     Code:str
     def __init__(this, fName:str, fReturnType:str, fParamString:str, fCode:str):
+        this.Parameters = {}
         this.Name = fName
         this.ReturnType = LanTypes.from_string(fReturnType)
         for set in fParamString.split(","):
+            if set == "": continue
             set_parts = set.strip().split(" ")
             this.Parameters[set_parts[1]] = LanTypes.from_string(set_parts[0])
         this.Code = fCode
     
-    def execute(this, parent:MylangeInterpreter, params:list) -> any:
+    def execute(this, parent:MylangeInterpreter, params:list, includeMemory:bool=False) -> any:
         container = MylangeInterpreter(f"Funct\\{this.Name}")
-        container.make_child_block(None, parent.CleanCodeCache)
+        if parent.EchosEnables: container.enable_echos()
+        old_mem_keys:list[str] = []
+        mem = None
+        if includeMemory:
+            mem = parent.Booker
+            old_mem_keys = list(parent.Booker.Registry.keys())
+        container.make_child_block(mem, parent.CleanCodeCache)
+        # Add parameters
         for i, param in enumerate(this.Parameters.items()):
             varval = VariableValue(param[1])
             varval.value = params[i] #TODO: Ensure values match
             container.Booker.set(param[0], varval)
-        r = container.interpret(this.Code, True)
+        r:any = None
+        thorw_break = False
+        try:
+            r = container.interpret(this.Code, True)
+        except LanErrors.Break: thorw_break = True
+        # Clear New Memory values, keeping old or altered ones
+        if includeMemory: 
+            for key in list(parent.Booker.Registry.keys()):
+                if key not in old_mem_keys: del parent.Booker.Registry[key]
+        if thorw_break: raise LanErrors.Break()
         return r
 
 
