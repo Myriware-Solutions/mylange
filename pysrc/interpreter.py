@@ -51,7 +51,7 @@ class MylangeInterpreter:
         this.CleanCodeCache = copy.deepcopy(cache)
         this.echo("Converting to Child Process")
 
-    def interpret(this, string:str, overrideClean:bool=False) -> any:
+    def interpret(this, string:str, overrideClean:bool=False) -> VariableValue:
         try:
             return this.interpret_logic(string, overrideClean)
         except LanErrors.Break: raise LanErrors.Break()
@@ -59,9 +59,9 @@ class MylangeInterpreter:
             AnsiColor.println(f"Fatal Error: {exception.message}", AnsiColor.BRIGHT_RED)
             return None
 
-    def interpret_logic(this, string:str, overrideClean:bool=False) -> any:
+    def interpret_logic(this, string:str, overrideClean:bool=False) -> VariableValue:
         lines:list[str] = this.make_chucks(string, overrideClean, this.StartBlockCacheNumber)
-        Return:any = None
+        Return:VariableValue = VariableValue(0, None)
         for line in lines:
             this.echo(line, "MyInLoop")
             # Match the type of line
@@ -108,7 +108,7 @@ class MylangeInterpreter:
                     raise Exception("IF/Else statement not configured right!")
                 this.echo(f"Parts: {when_true}, {when_false}, {condition}", indent=1)
                 # Evaluate the statement
-                result = this.format_parameter(condition)
+                result = (this.format_parameter(condition)).value
                 if type(result) != bool:
                     raise LanErrors.ConditionalNotBoolError(f"Cannot use this for boolean logic ({type(result)} {result}): {condition}")
                 # Do functions
@@ -131,7 +131,7 @@ class MylangeInterpreter:
             elif re.search(LanRe.ForStatement, line):
                 m = re.match(LanRe.ForStatement, line)
                 loop_var = f"{m.group(1).strip()} {m.group(2).strip()}"
-                loop_over:list = this.format_parameter(m.group(3))
+                loop_over:list[VariableValue] = this.format_parameter(m.group(3)).value
                 loop_do_str:str = m.group(4)
                 loop_funct = FunctionStatement("ForLoop", "nil", loop_var, loop_do_str)
                 try:
@@ -144,7 +144,7 @@ class MylangeInterpreter:
                 while_do_str = while_m.group(2).strip()
                 while_loop_funct = FunctionStatement("WhileLoop", "nil", "", while_do_str)
                 try:
-                    while this.format_parameter(while_condition):
+                    while this.format_parameter(while_condition).value:
                         while_loop_funct.execute(this, [], True)
                 except LanErrors.Break: pass
 
@@ -211,6 +211,9 @@ class MylangeInterpreter:
         elif re.search(LanRe.CachedString, part):
             this.echo("Casted to Cached String", anoyance=2)
             return VariableValue(LanTypes.string, this.CleanCodeCache[part][1:-1])
+        elif re.search(LanRe.CachedChar, part):
+            this.echo("Casted to Cached Char", anoyance=2)
+            return VariableValue(LanTypes.character, this.CleanCodeCache[part][1:-1])
         
         elif re.search(LanRe.VariableStructure, part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
@@ -277,7 +280,7 @@ class FunctionStatement:
             this.Parameters[set_parts[1]] = LanTypes.from_string(set_parts[0])
         this.Code = fCode
     
-    def execute(this, parent:MylangeInterpreter, params:list, includeMemory:bool=False) -> any:
+    def execute(this, parent:MylangeInterpreter, params:list[VariableValue], includeMemory:bool=False) -> any:
         container = MylangeInterpreter(f"Funct\\{this.Name}")
         if parent.EchosEnables: container.enable_echos()
         old_mem_keys:list[str] = []
@@ -288,19 +291,18 @@ class FunctionStatement:
         container.make_child_block(mem, parent.CleanCodeCache)
         # Add parameters
         for i, param in enumerate(this.Parameters.items()):
-            varval = VariableValue(param[1])
-            varval.value = params[i] #TODO: Ensure values match
-            container.Booker.set(param[0], varval)
+            if params[i].typeid != param[1]: raise Exception("Parameter given and expected do not match!")
+            container.Booker.set(param[0], params[i])
         r:any = None
-        thorw_break = False
+        throw_break = False
         try: 
             r = container.interpret(this.Code, True)
-        except LanErrors.Break: thorw_break = True
+        except LanErrors.Break: throw_break = True
         # Clear New Memory values, keeping old or altered ones
         if includeMemory: 
             for key in list(parent.Booker.Registry.keys()):
                 if key not in old_mem_keys: del parent.Booker.Registry[key]
-        if thorw_break: raise LanErrors.Break()
+        if throw_break: raise LanErrors.Break()
         return r
 
 

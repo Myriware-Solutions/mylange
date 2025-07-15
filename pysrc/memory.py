@@ -22,13 +22,10 @@ class MemoryBooker:
     def get(this, varQuerry:str) -> VariableValue:
         if not this.find(varQuerry): raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
         m = re.match(LanRe.VariableStructure, varQuerry)
-
         varin = this.Registry[m.group(1)][1]
-        print("Main var:", varin)
         if m.group(2):
             extention_m = re.findall(VarQuerryParts.AllMacthes, m.group(2))
             for ext in extention_m:
-                print("Working in:", ext)
                 ext:str = ext
                 if ext.startswith(':'):
                     varin = varin.value[ext[1:]]

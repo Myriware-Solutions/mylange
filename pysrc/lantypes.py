@@ -4,17 +4,23 @@ from enum import IntEnum, Enum
 
 class VariableValue:
     typeid:int
-    value:any
+    value:None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']
     def __init__(this, typeid:int, value:any=None):
         # if not LanTypes.is_valid_type(typeid):
         #     raise NotValidType()
         this.typeid = typeid
-        if (value): this.value = value
+        if (value != None): this.value = value
 
     def __str__(this):
         match (this.typeid):
+            case LanTypes.nil:
+                return 'nil'
+            case LanTypes.boolean:
+                return this.value.lower()
             case LanTypes.integer:
                 return f"{this.value}"
+            case LanTypes.character:
+                return f"'{this.value}'"
             case LanTypes.string:
                 return f'"{this.value}"'
             case LanTypes.array:
@@ -24,6 +30,17 @@ class VariableValue:
                 lset = [f"{k}:{v}" for k, v in this.value.items()]
                 return f"({', '.join(lset)})"
         return f"<{this.value}@{this.typeid}>"
+    
+    def to_string(this):
+        match (this.typeid):
+            case LanTypes.boolean:
+                return f"{this.value}".lower()
+            case LanTypes.integer:
+                return f"{this.value}"
+            case LanTypes.character | LanTypes.string:
+                return this.value
+            case _:
+                return this.__str__()
 
 class RandomTypeConversions:
     @staticmethod
@@ -38,7 +55,9 @@ class RandomTypeConversions:
                 return VariableValue(LanTypes.boolean, True)
             case LanTypes.integer:
                 return VariableValue(LanTypes.integer, int(string))
-            case LanTypes.character | LanTypes.string:
+            case LanTypes.character:
+                return VariableValue(LanTypes.character, string[1:-1])
+            case LanTypes.string:
                 return VariableValue(LanTypes.string, string[1:-1])
             case LanTypes.array:
                 insides:str = string[1:-1]
@@ -64,6 +83,9 @@ class RandomTypeConversions:
 
     @staticmethod
     def get_type(string:str) -> tuple[int, int]:
+        # nil
+        if (string == 'nil'):
+            return (LanTypes.nil, 0)
         # Boolean 
         if (string == "true"):
             return (LanTypes.boolean, 1)
@@ -74,6 +96,10 @@ class RandomTypeConversions:
             _ = int(string)
             return (LanTypes.integer, 0)
         except: pass
+        # Character
+        if (string.startswith("'")) and (string.endswith("'")):
+            print("char")
+            return (LanTypes.character, 0)
         # String 
         if (string.startswith('"')) and (string.endswith('"')):
             return (LanTypes.string, 0)

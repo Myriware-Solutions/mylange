@@ -1,5 +1,10 @@
 string name => "Anthony";
+print(name.charAt(1));
 set example => (name=>"Anthony", last=>"smith");
 array ex => [1, 2, 3];
 dump_cache();
-print(example:name)
+print(example:name);
+
+character sex => 'm';
+
+return 0;
