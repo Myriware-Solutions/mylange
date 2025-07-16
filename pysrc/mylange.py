@@ -2,6 +2,8 @@
 import sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
+# Vars
+version:str = "0.0.1"
 # Entry point for using the CLI
 linear:bool=False
 params:list[str] = sys.argv
@@ -17,7 +19,7 @@ if not linear:
         r = structure.interpret(f.read())
         AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)
 else:
-    print("Welcome to Mylange Linear Interface!")
+    AnsiColor.println(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version}", AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")
     while True:
         input_str:str = input(AnsiColor.colorize("> ", AnsiColor.MAGENTA))

@@ -23,7 +23,7 @@ class MylangeBuiltinFunctions:
     @staticmethod
     def dump_cache(booker:MemoryBooker) -> None:
         for k, v in booker.Registry.items():
-            AnsiColor.println(f"{k} @ {v[1].typeid} => {v[1]}", AnsiColor.BRIGHT_BLUE)
+            AnsiColor.println(f"{k} @ {v.typeid} => {v}", AnsiColor.BRIGHT_BLUE)
 
     @staticmethod
     def print(_, *params:any) -> None:
@@ -54,11 +54,16 @@ class VariableTypeMethods:
     
     @staticmethod
     def fire_variable_method(method:str, var:VariableValue, params:list[VariableValue]) -> any:
-        clazz = VariableTypeMethods.get_type(var.typeid)
-        if VariableTypeMethods.is_applitable(var.typeid, method):
-            attribute = getattr(clazz, method)
-            return attribute(var, *params)
-        else: raise Exception(f"This method does not exist on this type: {method} @ {var.typeid}")
+        if (var.typeid > -1):
+            # Mylange Class
+            clazz = VariableTypeMethods.get_type(var.typeid)
+            if VariableTypeMethods.is_applitable(var.typeid, method):
+                attribute = getattr(clazz, method)
+                return attribute(var, *params)
+            else: raise Exception(f"This method does not exist on this type: {method} @ {var.typeid}")
+        else:
+            # User Defined Class
+            return var.value.do_method(method, params)
 
     class Interger:
         @staticmethod

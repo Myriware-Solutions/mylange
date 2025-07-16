@@ -2,7 +2,6 @@
 import re
 import json
 import copy
-import sys
 
 from lanregexes import LanRe
 from memory import MemoryBooker
@@ -12,6 +11,7 @@ from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions, VariableTypeMethods
 from lanerrors import LanErrors
 from interface import AnsiColor
+from lanclass import LanClass, LanFunction
 # GLOBALS
 FILE_EXT:str = ".my"
 # Main Mylange Class
@@ -40,31 +40,31 @@ class MylangeInterpreter:
         this.BlockTree = blockTree
         this.LineNumber = startingLineNumber
         this.StartBlockCacheNumber = startBlockCacheNumber
-        this.Fuctions:dict[str,FunctionStatement] = {}
 
-    def make_child_block(this, booker:MemoryBooker, cache:dict[str,str]) -> None:
+    def make_child_block(this, parent:'MylangeInterpreter', shareMemory:bool) -> None:
         # IF these are set dirrectly, then they will allow
         # the blocks to make changes to the master's data,
         # which may not be the funcionally wanted
         # if (booker != None): this.Booker = copy.deepcopy(booker)
-        if (booker != None): this.Booker = booker
-        this.CleanCodeCache = copy.deepcopy(cache)
+        if (shareMemory): this.Booker = parent.Booker
+        this.CleanCodeCache = copy.deepcopy(parent.CleanCodeCache)
         this.echo("Converting to Child Process")
 
-    def interpret(this, string:str, overrideClean:bool=False) -> VariableValue:
+    def interpret(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue:
         try:
-            return this.interpret_logic(string, overrideClean)
+            return this.interpret_logic(string, overrideClean, objectMethodMaster)
         except LanErrors.Break: raise LanErrors.Break()
         except LanErrors.MylangeError as exception:
             AnsiColor.println(f"Fatal Error: {exception.message}", AnsiColor.BRIGHT_RED)
             return None
 
-    def interpret_logic(this, string:str, overrideClean:bool=False) -> VariableValue:
+    def interpret_logic(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue:
         lines:list[str] = this.make_chucks(string, overrideClean, this.StartBlockCacheNumber)
         Return:VariableValue = VariableValue(0, None)
         for line in lines:
             this.echo(line, "MyInLoop")
             # Match the type of line
+            # === Imports === #
             if re.search(LanRe.ImportStatement, line):
                 m = re.match(LanRe.ImportStatement, line)
                 file_name:str = m.group(1) + FILE_EXT
@@ -77,8 +77,9 @@ class MylangeInterpreter:
                 with open(file_name, 'r') as imports_file:
                     mi.interpret(imports_file.read())
                     for funct_name in functions:
-                        this.Fuctions[funct_name] = mi.Fuctions[funct_name]
+                        this.Booker.FunctionRegistry[funct_name] = mi.Booker.FunctionRegistry[funct_name]
                     this.CleanCodeCache.update(mi.CleanCodeCache)
+            # === Variables === #
             elif re.search(LanRe.VariableDecleration, line):
                 m = re.match(LanRe.VariableDecleration, line)
                 #globally:bool = m.group(1)=="global"
@@ -90,6 +91,7 @@ class MylangeInterpreter:
                 value = this.format_parameter(value_str)
                 this.echo(f"This is a Variable Declaration! {name}@{typeid}({m.group(2)}) {value}", indent=1)
                 this.Booker.set(name, value)
+            # === If/Else ===#
             elif re.search(LanRe.IfStatementGeneral, line):
                 # Match to correct if/else block
                 condition = None
@@ -120,34 +122,46 @@ class MylangeInterpreter:
                     block = MylangeInterpreter(f"{this.BlockTree}/IfFalse", this.LineNumber)
                     block.make_child_block(this.Booker, this.CleanCodeCache)
                     block.interpret(when_false, True)
+            # === Function Declaration === #
             elif re.search(LanRe.FunctionStatement, line):
                 m = re.match(LanRe.FunctionStatement, line)
                 return_type:str = m.group(1)
                 function_name:str = m.group(2)
                 function_parameters_string = m.group(3)
                 function_code_string = m.group(4)
-                funct = FunctionStatement(function_name, return_type, function_parameters_string, function_code_string)
-                this.Fuctions[function_name] = funct
+                funct = LanFunction(function_name, return_type, function_parameters_string, function_code_string)
+                this.Booker.FunctionRegistry[function_name] = funct
+            # === Class Declaration === #
+            elif re.search(LanRe.ClassStatement, line):
+                m = re.match(LanRe.ClassStatement, line)
+                cls_name:str = m.group(1)
+                cls_body:str = m.group(2)
+                lan_cls = LanClass(cls_name, cls_body, this)
+                this.Booker.ClassRegistry[cls_name] = lan_cls
+            # === Class Property Set === #
+            elif re.search(LanRe.PropertySetStatement, line):
+                m = re.match(LanRe.PropertySetStatement, line)
+                objectMethodMaster.Properties[m.group(1)] = this.format_parameter(m.group(2))
+            # === Loops === #
             elif re.search(LanRe.ForStatement, line):
                 m = re.match(LanRe.ForStatement, line)
                 loop_var = f"{m.group(1).strip()} {m.group(2).strip()}"
                 loop_over:list[VariableValue] = this.format_parameter(m.group(3)).value
                 loop_do_str:str = m.group(4)
-                loop_funct = FunctionStatement("ForLoop", "nil", loop_var, loop_do_str)
+                loop_funct = LanFunction("ForLoop", "nil", loop_var, loop_do_str)
                 try:
                     for item in loop_over: loop_funct.execute(this, [item], True)
                 except LanErrors.Break: pass
-
             elif re.search(LanRe.WhileStatement, line):
                 while_m = re.match(LanRe.WhileStatement, line)
                 while_condition = while_m.group(1).strip()
                 while_do_str = while_m.group(2).strip()
-                while_loop_funct = FunctionStatement("WhileLoop", "nil", "", while_do_str)
+                while_loop_funct = LanFunction("WhileLoop", "nil", "", while_do_str)
                 try:
                     while this.format_parameter(while_condition).value:
                         while_loop_funct.execute(this, [], True)
                 except LanErrors.Break: pass
-
+            # === Other === #
             elif re.search(LanRe.FunctionOrMethodCall, line):
                 this.do_function_or_method(line)
             elif re.search(LanRe.CachedBlock, line):
@@ -185,7 +199,7 @@ class MylangeInterpreter:
         if RandomTypeConversions.get_type(part)[0] != 0:
             this.echo("Casted to RandomType", anoyance=2)
             return RandomTypeConversions.convert(part, this)
-        
+        # Boolean #
         elif re.search(LanRe.GeneralEqualityStatement, part):
             m = re.match(LanRe.GeneralEqualityStatement, part)
             r = LanBooleanStatementLogic.evaluate(
@@ -195,6 +209,7 @@ class MylangeInterpreter:
             )
             this.echo(f"Casted to Boolean Expression: {r}", anoyance=2)
             return VariableValue(LanTypes.boolean, r)
+        # Math #
         elif re.search(LanRe.GeneralArithmetics, part):
             m = re.match(LanRe.GeneralArithmetics, part)
             r = LanArithmetics.evaluate(
@@ -204,17 +219,25 @@ class MylangeInterpreter:
             )
             this.echo(f"Casted to Arithmetic Expression: {r}", anoyance=2)
             return VariableValue(LanTypes.integer, r)
+        # Function/Method Call #
         elif re.search(LanRe.FunctionOrMethodCall, part):
             this.echo("Casted to Function/Method", anoyance=2)
             return this.do_function_or_method(part)
-
+        # New Object from Class #
+        elif re.search(LanRe.NewClassObjectStatement, part):
+            m = re.match(LanRe.NewClassObjectStatement, part)
+            cls_name = m.group(1)
+            cls_args = this.make_parameter_list(m.group(2))
+            this.echo(f"Casted to New Class Object <{cls_name}>", anoyance=2)
+            return this.Booker.ClassRegistry[cls_name].create(cls_args)
+        # Cached #
         elif re.search(LanRe.CachedString, part):
             this.echo("Casted to Cached String", anoyance=2)
             return VariableValue(LanTypes.string, this.CleanCodeCache[part][1:-1])
         elif re.search(LanRe.CachedChar, part):
             this.echo("Casted to Cached Char", anoyance=2)
             return VariableValue(LanTypes.character, this.CleanCodeCache[part][1:-1])
-        
+        # Variable by Name #
         elif re.search(LanRe.VariableStructure, part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
                 r = this.Booker.get(part)
@@ -245,9 +268,9 @@ class MylangeInterpreter:
         parameters_formated = this.make_parameter_list(parameter_blob)
         if MylangeBuiltinFunctions.is_builtin(function_or_method):
             return MylangeBuiltinFunctions.fire_builtin(this.Booker, function_or_method, parameters_formated)
-        elif function_or_method in this.Fuctions.keys():
+        elif function_or_method in this.Booker.FunctionRegistry.keys():
             parameters = this.make_parameter_list(parameter_blob)
-            r = this.Fuctions[function_or_method].execute(this, parameters)
+            r = this.Booker.FunctionRegistry[function_or_method].execute(this, parameters)
             return r
         elif '.' in function_or_method:
             # Indicates Method call
@@ -260,50 +283,14 @@ class MylangeInterpreter:
                 r = VariableTypeMethods.fire_variable_method(nodes[1], var, parameters_formated)
                 this.echo(f"Altr here {var}")
                 return r
-            else:
-                #TODO: Find the class, then do the method
+            elif nodes[0] in this.Booker.ClassRegistry.keys():
+                #TODO: Call static methods on the class
                 pass
+            else:
+                raise LanErrors.MemoryMissingError("Could not find class or variable with dot-extentions.")
         else: raise Exception(f"Cannot Find this Function/Method: {function_or_method}")
 
-class FunctionStatement:
-    Name:str
-    ReturnType:int
-    Parameters:dict[str,int]
-    Code:str
-    def __init__(this, fName:str, fReturnType:str, fParamString:str, fCode:str):
-        this.Parameters = {}
-        this.Name = fName
-        this.ReturnType = LanTypes.from_string(fReturnType)
-        for set in fParamString.split(","):
-            if set == "": continue
-            set_parts = set.strip().split(" ")
-            this.Parameters[set_parts[1]] = LanTypes.from_string(set_parts[0])
-        this.Code = fCode
-    
-    def execute(this, parent:MylangeInterpreter, params:list[VariableValue], includeMemory:bool=False) -> any:
-        container = MylangeInterpreter(f"Funct\\{this.Name}")
-        if parent.EchosEnables: container.enable_echos()
-        old_mem_keys:list[str] = []
-        mem = None
-        if includeMemory:
-            mem = parent.Booker
-            old_mem_keys = list(parent.Booker.Registry.keys())
-        container.make_child_block(mem, parent.CleanCodeCache)
-        # Add parameters
-        for i, param in enumerate(this.Parameters.items()):
-            if params[i].typeid != param[1]: raise Exception("Parameter given and expected do not match!")
-            container.Booker.set(param[0], params[i])
-        r:any = None
-        throw_break = False
-        try: 
-            r = container.interpret(this.Code, True)
-        except LanErrors.Break: throw_break = True
-        # Clear New Memory values, keeping old or altered ones
-        if includeMemory: 
-            for key in list(parent.Booker.Registry.keys()):
-                if key not in old_mem_keys: del parent.Booker.Registry[key]
-        if throw_break: raise LanErrors.Break()
-        return r
+
 
 
 # Pre-processes code into interpreter-efficient executions

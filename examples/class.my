@@ -1,0 +1,20 @@
+class Person has {
+    prop string First;
+    prop string Last;
+    prop integer Age => 18;
+
+    def nil constructor(string first, string last) as {
+        print("constructor called!");
+        this:First => first;
+        this:Last => last;
+    };
+
+    def nil Greet() as {
+        print("Hello " + this:First + " " + this:Last);
+    }
+};
+
+Person Anthony => new Person("Anthony", "Smith");
+Anthony.Greet();
+
+dump_cache();

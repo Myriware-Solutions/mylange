@@ -11,18 +11,24 @@ class VarQuerryParts(StrEnum):
 
 # Runtime Memory Manager, aka Booker
 class MemoryBooker:
-    Registry:dict[str, tuple[int, VariableValue]]
+    Registry:dict[str, VariableValue]
+    FunctionRegistry:dict[str, any]
+    ClassRegistry:dict[str, any]
 
     def __init__(this):
+        from interpreter import LanFunction
+        from lanclass import LanClass
         this.Registry = {}
+        this.FunctionRegistry:dict[str, LanFunction] = {}
+        this.ClassRegistry:dict[str, LanClass] = {}
 
     def set(this, varName:str, value:VariableValue, *flags:list[int]):
-        this.Registry[varName] = (sum(flags), value)
+        this.Registry[varName] = value
 
     def get(this, varQuerry:str) -> VariableValue:
         if not this.find(varQuerry): raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
         m = re.match(LanRe.VariableStructure, varQuerry)
-        varin = this.Registry[m.group(1)][1]
+        varin = this.Registry[m.group(1)]
         if m.group(2):
             extention_m = re.findall(VarQuerryParts.AllMacthes, m.group(2))
             for ext in extention_m:

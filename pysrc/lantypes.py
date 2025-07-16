@@ -1,14 +1,14 @@
 # IMPORTS
 from enum import IntEnum, Enum
+
 # Type castisting for variables
 
 class VariableValue:
     typeid:int
-    value:None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']
     def __init__(this, typeid:int, value:any=None):
-        # if not LanTypes.is_valid_type(typeid):
-        #     raise NotValidType()
+        from lanclass import LanClass
         this.typeid = typeid
+        this.value:None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|LanClass = None
         if (value != None): this.value = value
 
     def __str__(this):
@@ -140,7 +140,8 @@ class LanTypes(IntEnum):
     
     @staticmethod
     def from_string(typestring:str) -> int:
-        return TypeNameArray.index(typestring)
+        try: return TypeNameArray.index(typestring)
+        except: return -1
 
     @staticmethod
     def to_string_name(typeid:int) -> str:
