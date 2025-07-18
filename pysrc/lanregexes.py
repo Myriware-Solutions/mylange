@@ -4,37 +4,37 @@ from enum import StrEnum
 
 class ActualRegex(StrEnum):
     # Redefinitions
-    Redefinitions = "^#!(.*)"
+    Redefinitions = r"^#!(.*)"
     # Variables
-    VariableDecleration = "^([a-zA-Z]+) +(\w+) *=(>+) *(.*) *"
-    VariableStructure = "^(\w*)([\[\]:\w]+)?"
+    VariableDecleration = r"^(.*) *([a-zA-Z]+) +(\w+) *=(>+) *(.*) *"
+    VariableStructure = r"^(\w*)([\[\]:\w]+)?"
     # Functions
-    FunctionStatement = "def +(\w+) +(\w+) *\((.*)\) *as +(.*)"
-    FunctionOrMethodCall = "^([\w.]+) *\((.*)\)"
-    ReturnStatement= "^return *(.*)"
+    FunctionStatement = r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)"
+    FunctionOrMethodCall = r"^([\w.]+) *\((.*)\)"
+    ReturnStatement= r"^return *(.*)"
     # Caches
-    CachedBlock = "(0x[a-fA-F0-9]+)"
-    CachedChar = "(1x[a-fA-F0-9]+)"
-    CachedString = "^(2x[a-fA-F0-9]+)"
+    CachedBlock = r"(0x[a-fA-F0-9]+)"
+    CachedChar = r"(1x[a-fA-F0-9]+)"
+    CachedString = r"^(2x[a-fA-F0-9]+)"
     # Imports
-    ImportStatement = "from +(\w+) +import +([\w, ]+)"
+    ImportStatement = r"from +(\w+) +import +([\w, ]+)"
     # Loops
-    ForStatement = "for +(\w+) +([a-zA-Z]+) +in +(.+) +do (.+)"
-    WhileStatement = "^while *\((.*)\) *do +(.*)"
-    BreakStatement = "^break"
+    ForStatement = r"for +(\w+) +([a-zA-Z]+) +in +(.+) +do (.+)"
+    WhileStatement = r"^while *\((.*)\) *do +(.*)"
+    BreakStatement = r"^break"
     # Classes
-    ClassStatement = "^class +([a-zA-Z]\w*) +has +(.*)"
-    ProprotyStatement = "^prop +([a-zA-Z\[\]]+) +(\w+)(?: *=> *(.*) *)?"
-    NewClassObjectStatement = "new +([a-zA-Z]\w*) *\((.*)\)"
-    PropertySetStatement = "this:(.+) +=> +(.*)"
+    ClassStatement = r"^class +([a-zA-Z]\w*) +has +(.*)"
+    ProprotyStatement = r"^prop +([a-zA-Z\[\]]+) +(\w+)(?: *=> *(.*) *)?"
+    NewClassObjectStatement = r"new +([a-zA-Z]\w*) *\((.*)\)"
+    PropertySetStatement = r"this:(.+) +=> +(.*)"
     # If/Else Statements
-    IfStatementGeneral = "if +\(.*\) +then +.*"
-    IfElseStatement = "if *\((.*)\) *then +(.*?) +else +(.*)"
-    IfStatement = "if *\((.*)\) *then +(.*)"
+    IfStatementGeneral = r"if +\(.*\) +then +.*"
+    IfElseStatement = r"if *\((.*)\) *then +(.*?) +else +(.*)"
+    IfStatement = r"if *\((.*)\) *then +(.*)"
     # Boolean
-    GeneralEqualityStatement = "^(.*?) *([=<>!]+) *(.*)"
+    GeneralEqualityStatement = r"^(.*?) *([=<>!]+) *(.*)"
     # Arithmetics
-    GeneralArithmetics = "^(.*?) *([+\-*\/]+) *(.*)"
+    GeneralArithmetics = r"^(.*?) *([+\-*\/]+) *(.*)"
 
 class LanReClass:
     ImportStatement:str
