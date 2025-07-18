@@ -27,10 +27,10 @@ class MemoryBooker:
 
     def get(this, varQuerry:str) -> VariableValue:
         if not this.find(varQuerry): raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
-        m = re.match(LanRe.VariableStructure, varQuerry)
+        m = LanRe.match(LanRe.VariableStructure, varQuerry)
         varin = this.Registry[m.group(1)]
         if m.group(2):
-            extention_m = re.findall(VarQuerryParts.AllMacthes, m.group(2))
+            extention_m = re.findall(VarQuerryParts.AllMacthes, m.group(2), flags=re.UNICODE)
             for ext in extention_m:
                 ext:str = ext
                 if ext.startswith(':'):
@@ -41,7 +41,7 @@ class MemoryBooker:
         return varin
     
     def find(this, varQuerry:str) -> bool:
-        m = re.match(LanRe.VariableStructure, varQuerry)
+        m = LanRe.match(LanRe.VariableStructure, varQuerry)
         #if not m: raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
         return (m != None) and (m.group(1) in this.Registry.keys())
 

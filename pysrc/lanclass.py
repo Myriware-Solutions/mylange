@@ -64,9 +64,9 @@ class LanClass:
     Parent:any
     @staticmethod
     def clean_code_block(codeBody:str) -> list[str]:
-        r = re.sub(r"\n", '', codeBody, flags=re.MULTILINE)
-        r = re.sub(r"^ +", '', r, flags=re.MULTILINE)
-        r = re.sub(r" +", ' ', r, flags=re.MULTILINE)
+        r = re.sub(r"\n", '', codeBody, flags=re.MULTILINE|re.UNICODE)
+        r = re.sub(r"^ +", '', r, flags=re.MULTILINE|re.UNICODE)
+        r = re.sub(r" +", ' ', r, flags=re.MULTILINE|re.UNICODE)
         return r.split(';')
     def __str__(this):
         return this.Name
@@ -82,17 +82,17 @@ class LanClass:
         codeBlockLines:str = parent.CleanCodeCache[codeBody.strip()]
         lines = LanClass.clean_code_block(codeBlockLines)
         #print(lines)
-        property_strs:list = [item for item in lines if re.search(LanRe.ProprotyStatement, item, re.MULTILINE)]
-        method_strs:list = [item for item in lines if re.search(LanRe.FunctionStatement, item)]
+        property_strs:list = [item for item in lines if LanRe.search(LanRe.ProprotyStatement, item, re.MULTILINE)]
+        method_strs:list = [item for item in lines if LanRe.search(LanRe.FunctionStatement, item)]
         # Assign Proproties
         for proproty_init in property_strs:
-            m = re.search(LanRe.ProprotyStatement, proproty_init)
+            m = LanRe.match(LanRe.ProprotyStatement, proproty_init)
             p_type = m.group(1)
             p_name = m.group(2)
             p_init = RandomTypeConversions.convert(m.group(3)) if (m.group(3)) else None
             this.set_property(p_name, LanTypes.from_string(p_type), p_init)
         for method_init in method_strs:
-            m = re.search(LanRe.FunctionStatement, method_init)
+            m = LanRe.search(LanRe.FunctionStatement, method_init)
             init_param_str = ",".join(["set this"] + m.group(3).split(','))
             funct = LanFunction(m.group(2), m.group(1), init_param_str, parent.CleanCodeCache[m.group(4)])
             this.Methods[m.group(2)] =  funct

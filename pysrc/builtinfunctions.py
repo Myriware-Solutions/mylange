@@ -31,7 +31,7 @@ class MylangeBuiltinFunctions:
     
     @staticmethod
     def input(_, prompt:VariableValue) -> str:
-        return input(prompt.value)
+        return VariableValue(LanTypes.string, input(prompt.value))
     
 class VariableTypeMethods:
     @staticmethod

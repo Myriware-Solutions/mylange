@@ -3,7 +3,7 @@ import re
 import json
 import copy
 
-from lanregexes import LanRe
+from lanregexes import LanRe, ActualRegex, LanReClass
 from memory import MemoryBooker
 from lantypes import LanTypes, VariableValue, RandomTypeConversions
 from booleanlogic import LanBooleanStatementLogic
@@ -65,23 +65,23 @@ class MylangeInterpreter:
             this.echo(line, "MyInLoop")
             # Match the type of line
             # === Imports === #
-            if re.search(LanRe.ImportStatement, line):
-                m = re.match(LanRe.ImportStatement, line)
+            if LanRe.match(LanRe.ImportStatement, line):
+                m = LanRe.match(LanRe.ImportStatement, line)
                 file_name:str = m.group(1) + FILE_EXT
                 this.echo(f"Importing from {file_name}", "Importer")
                 function_bloc:str = m.group(2)
                 functions = [funct.strip() for funct in function_bloc.split(",")]
                 # Setup Vitual envirement
                 mi = MylangeInterpreter(f"Imports\\{m.group(1)}", startBlockCacheNumber=len([item for item in this.CleanCodeCache.keys() if item.startswith("0x")]))
-                mi.make_child_block(None, this.CleanCodeCache)
+                mi.make_child_block(this)
                 with open(file_name, 'r') as imports_file:
                     mi.interpret(imports_file.read())
                     for funct_name in functions:
                         this.Booker.FunctionRegistry[funct_name] = mi.Booker.FunctionRegistry[funct_name]
                     this.CleanCodeCache.update(mi.CleanCodeCache)
             # === Variables === #
-            elif re.search(LanRe.VariableDecleration, line):
-                m = re.match(LanRe.VariableDecleration, line)
+            elif LanRe.match(LanRe.VariableDecleration, line):
+                m = LanRe.match(LanRe.VariableDecleration, line)
                 #globally:bool = m.group(1)=="global"
                 typeid:int = LanTypes.from_string(m.group(2))
                 name:str = m.group(3)
@@ -92,18 +92,18 @@ class MylangeInterpreter:
                 this.echo(f"This is a Variable Declaration! {name}@{typeid}({m.group(2)}) {value}", indent=1)
                 this.Booker.set(name, value)
             # === If/Else ===#
-            elif re.search(LanRe.IfStatementGeneral, line):
+            elif LanRe.match(LanRe.IfStatementGeneral, line):
                 # Match to correct if/else block
                 condition = None
                 when_true = None 
                 when_false = None
-                if re.search(LanRe.IfElseStatement, line):
-                    m = re.match(LanRe.IfElseStatement, line)
+                if LanRe.match(LanRe.IfElseStatement, line):
+                    m = LanRe.match(LanRe.IfElseStatement, line)
                     condition = m.group(1)
                     when_true = m.group(2)
                     when_false = m.group(3)
-                elif re.search(LanRe.IfStatement, line):
-                    m = re.match(LanRe.IfStatement, line)
+                elif LanRe.match(LanRe.IfStatement, line):
+                    m = LanRe.match(LanRe.IfStatement, line)
                     condition = m.group(1)
                     when_true = m.group(2)
                 else:
@@ -116,15 +116,15 @@ class MylangeInterpreter:
                 # Do functions
                 if (result):
                     block = MylangeInterpreter(f"{this.BlockTree}/IfTrue", this.LineNumber)
-                    block.make_child_block(this.Booker, this.CleanCodeCache)
+                    block.make_child_block(this, True)
                     block.interpret(when_true, True)
                 elif (not result) and (when_false!=None):
                     block = MylangeInterpreter(f"{this.BlockTree}/IfFalse", this.LineNumber)
-                    block.make_child_block(this.Booker, this.CleanCodeCache)
+                    block.make_child_block(this, True)
                     block.interpret(when_false, True)
             # === Function Declaration === #
-            elif re.search(LanRe.FunctionStatement, line):
-                m = re.match(LanRe.FunctionStatement, line)
+            elif LanRe.match(LanRe.FunctionStatement, line):
+                m = LanRe.match(LanRe.FunctionStatement, line)
                 return_type:str = m.group(1)
                 function_name:str = m.group(2)
                 function_parameters_string = m.group(3)
@@ -132,19 +132,19 @@ class MylangeInterpreter:
                 funct = LanFunction(function_name, return_type, function_parameters_string, function_code_string)
                 this.Booker.FunctionRegistry[function_name] = funct
             # === Class Declaration === #
-            elif re.search(LanRe.ClassStatement, line):
-                m = re.match(LanRe.ClassStatement, line)
+            elif LanRe.match(LanRe.ClassStatement, line):
+                m = LanRe.match(LanRe.ClassStatement, line)
                 cls_name:str = m.group(1)
                 cls_body:str = m.group(2)
                 lan_cls = LanClass(cls_name, cls_body, this)
                 this.Booker.ClassRegistry[cls_name] = lan_cls
             # === Class Property Set === #
-            elif re.search(LanRe.PropertySetStatement, line):
-                m = re.match(LanRe.PropertySetStatement, line)
+            elif LanRe.match(LanRe.PropertySetStatement, line):
+                m = LanRe.match(LanRe.PropertySetStatement, line)
                 objectMethodMaster.Properties[m.group(1)] = this.format_parameter(m.group(2))
             # === Loops === #
-            elif re.search(LanRe.ForStatement, line):
-                m = re.match(LanRe.ForStatement, line)
+            elif LanRe.match(LanRe.ForStatement, line):
+                m = LanRe.match(LanRe.ForStatement, line)
                 loop_var = f"{m.group(1).strip()} {m.group(2).strip()}"
                 loop_over:list[VariableValue] = this.format_parameter(m.group(3)).value
                 loop_do_str:str = m.group(4)
@@ -152,8 +152,8 @@ class MylangeInterpreter:
                 try:
                     for item in loop_over: loop_funct.execute(this, [item], True)
                 except LanErrors.Break: pass
-            elif re.search(LanRe.WhileStatement, line):
-                while_m = re.match(LanRe.WhileStatement, line)
+            elif LanRe.match(LanRe.WhileStatement, line):
+                while_m = LanRe.match(LanRe.WhileStatement, line)
                 while_condition = while_m.group(1).strip()
                 while_do_str = while_m.group(2).strip()
                 while_loop_funct = LanFunction("WhileLoop", "nil", "", while_do_str)
@@ -162,28 +162,37 @@ class MylangeInterpreter:
                         while_loop_funct.execute(this, [], True)
                 except LanErrors.Break: pass
             # === Other === #
-            elif re.search(LanRe.FunctionOrMethodCall, line):
+            elif LanRe.match(LanRe.FunctionOrMethodCall, line):
                 this.do_function_or_method(line)
-            elif re.search(LanRe.CachedBlock, line):
+            elif LanRe.match(LanRe.CachedBlock, line):
                 r = this.interpret(this.CleanCodeCache[line.strip()], True)
                 if (r != None): Return = r
-            elif re.search(LanRe.BreakStatement, line):
+            elif LanRe.match(LanRe.BreakStatement, line):
                 this.echo("Break Called")
                 raise LanErrors.Break()
-            elif re.search(LanRe.ReturnStatement, line):
+            elif LanRe.match(LanRe.ReturnStatement, line):
                 # Last thing, return forced
-                m = re.match(LanRe.ReturnStatement, line)
+                m = LanRe.match(LanRe.ReturnStatement, line)
                 Return = this.format_parameter(m.group(1))
                 return Return
             this.LineNumber += 1
         return Return
 
     def make_chucks(this, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
+        string:str = string
+        for redecl in re.findall(ActualRegex.Redefinitions, string, re.MULTILINE):
+            redecl:str = redecl
+            print("Found Redelaration: ", redecl)
+            for item in redecl.strip().split(','):
+                item_p = item.strip().split(" ")
+                LanRe.add_translation(item_p[0], item_p[1])
+            string = string.replace(f"#!{redecl}", '')
         clean_code, clean_code_cache = CodeCleaner.cleanup_chunk(string, overrideClean, starBlockCacheNumber)
         this.CleanCodeCache.update(clean_code_cache)
         if (this.BlockTree == "Main") and this.EchosEnables:
             mem_blocks:list[str] = [f"{k} -> {v}" for k, v in this.CleanCodeCache.items()]
-            AnsiColor.println(f"[Code Lines]\n{clean_code}\n[Memory Units]\n{'\n'.join(mem_blocks)}", AnsiColor.BLUE)
+            joined_mem = '\n'.join(mem_blocks)
+            AnsiColor.println(f"[Code Lines]\n{clean_code}\n[Memory Units]\n{joined_mem}", AnsiColor.BLUE)
         return [item for item in clean_code.split(";") if item != '']
     
     def make_parameter_list(this, string:str) -> list:
@@ -196,73 +205,77 @@ class MylangeInterpreter:
     def format_parameter(this, part:str) -> VariableValue:
         part = part.strip()
         this.echo(f"Consitering: {part}", anoyance=2)
+        Return:VariableValue = None
         if RandomTypeConversions.get_type(part)[0] != 0:
             this.echo("Casted to RandomType", anoyance=2)
-            return RandomTypeConversions.convert(part, this)
+            Return = RandomTypeConversions.convert(part, this)
         # Boolean #
-        elif re.search(LanRe.GeneralEqualityStatement, part):
-            m = re.match(LanRe.GeneralEqualityStatement, part)
+        elif LanRe.match(LanRe.GeneralEqualityStatement, part):
+            m = LanRe.match(LanRe.GeneralEqualityStatement, part)
             r = LanBooleanStatementLogic.evaluate(
-                this.format_parameter(m.group(1)).value,
+                this.format_parameter(m.group(1)),
                 m.group(2),
-                this.format_parameter(m.group(3)).value
+                this.format_parameter(m.group(3))
             )
             this.echo(f"Casted to Boolean Expression: {r}", anoyance=2)
-            return VariableValue(LanTypes.boolean, r)
+            Return = VariableValue(LanTypes.boolean, r)
         # Math #
-        elif re.search(LanRe.GeneralArithmetics, part):
-            m = re.match(LanRe.GeneralArithmetics, part)
+        elif LanRe.match(LanRe.GeneralArithmetics, part):
+            m = LanRe.match(LanRe.GeneralArithmetics, part)
             r = LanArithmetics.evaluate(
                 this.format_parameter(m.group(1)),
                 m.group(2),
                 this.format_parameter(m.group(3))
             )
             this.echo(f"Casted to Arithmetic Expression: {r}", anoyance=2)
-            return VariableValue(LanTypes.integer, r)
+            Return = VariableValue(LanTypes.integer, r)
         # Function/Method Call #
-        elif re.search(LanRe.FunctionOrMethodCall, part):
+        elif LanRe.match(LanRe.FunctionOrMethodCall, part):
             this.echo("Casted to Function/Method", anoyance=2)
-            return this.do_function_or_method(part)
+            Return = this.do_function_or_method(part)
         # New Object from Class #
-        elif re.search(LanRe.NewClassObjectStatement, part):
-            m = re.match(LanRe.NewClassObjectStatement, part)
+        elif LanRe.match(LanRe.NewClassObjectStatement, part):
+            m = LanRe.match(LanRe.NewClassObjectStatement, part)
             cls_name = m.group(1)
             cls_args = this.make_parameter_list(m.group(2))
             this.echo(f"Casted to New Class Object <{cls_name}>", anoyance=2)
-            return this.Booker.ClassRegistry[cls_name].create(cls_args)
+            Return = this.Booker.ClassRegistry[cls_name].create(cls_args)
         # Cached #
-        elif re.search(LanRe.CachedString, part):
+        elif LanRe.match(LanRe.CachedString, part):
             this.echo("Casted to Cached String", anoyance=2)
-            return VariableValue(LanTypes.string, this.CleanCodeCache[part][1:-1])
-        elif re.search(LanRe.CachedChar, part):
+            Return = VariableValue(LanTypes.string, this.CleanCodeCache[part][1:-1])
+        elif LanRe.match(LanRe.CachedChar, part):
             this.echo("Casted to Cached Char", anoyance=2)
-            return VariableValue(LanTypes.character, this.CleanCodeCache[part][1:-1])
+            Return = VariableValue(LanTypes.character, this.CleanCodeCache[part][1:-1])
         # Variable by Name #
-        elif re.search(LanRe.VariableStructure, part) and (part not in this.SpecialValueWords):
+        elif LanRe.match(LanRe.VariableStructure, part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
                 r = this.Booker.get(part)
                 this.echo(f"Casted to Variable: {r}", anoyance=2)
-                return r
+                Return = r
             else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")         
         else:
             this.echo("Casted to Failsafe RandomType Conversion", anoyance=2)
-            return RandomTypeConversions.convert(part, this)
+            Return = RandomTypeConversions.convert(part, this)
+
+        if (not isinstance(Return, VariableValue)):
+            raise Exception("How am I not returning the right value? ", Return)
+        else: return Return
         
     def evaluate_boolean(this, condition:str) -> bool:
-        if re.search(LanRe.GeneralEqualityStatement, condition):
-            bool_m = re.match(LanRe.GeneralEqualityStatement, condition)
+        if LanRe.match(LanRe.GeneralEqualityStatement, condition):
+            bool_m = LanRe.match(LanRe.GeneralEqualityStatement, condition)
             left:any = this.format_parameter(bool_m.group(1))
             operation:str = bool_m.group(2)
             right:any = this.format_parameter(bool_m.group(3))
             return LanBooleanStatementLogic.evaluate(left, operation, right)
-        
 
     # Certain variable-name capatible words that should not
     # be ever treated like a variable.
     SpecialValueWords:list[str] = ["nil", "true", "false"]
     
     def do_function_or_method(this, string:str) -> any:
-        m = re.match(LanRe.FunctionOrMethodCall, string)
+        m = LanRe.match(LanRe.FunctionOrMethodCall, string)
         function_or_method:str = m.group(1)
         parameter_blob:str = m.group(2)
         parameters_formated = this.make_parameter_list(parameter_blob)
@@ -289,9 +302,6 @@ class MylangeInterpreter:
             else:
                 raise LanErrors.MemoryMissingError("Could not find class or variable with dot-extentions.")
         else: raise Exception(f"Cannot Find this Function/Method: {function_or_method}")
-
-
-
 
 # Pre-processes code into interpreter-efficient executions
 class CodeCleaner:
