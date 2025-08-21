@@ -26,22 +26,23 @@ class LanFunction:
             raise Exception("Fatal Error: Params Expected and Given missmatch: ")
         this.Code = fCode
     
-    def execute(this, parent:any, params:list[VariableValue], includeMemory:bool=False, objectMethodMaster:'LanClass'=None) -> any:
+    def execute(this, parent:any, params:list[VariableValue], includeMemory:bool=False, objectMethodMaster:'LanClass'=None) -> VariableValue:
         from interpreter import MylangeInterpreter
         parent:MylangeInterpreter = parent
         container = MylangeInterpreter(f"Funct\\{this.Name}")
-        if parent.EchosEnables: container.enable_echos()
         old_mem_keys:list[str] = []
         mem = None
         if includeMemory:
             mem = parent.Booker
             old_mem_keys = list(parent.Booker.Registry.keys())
-        container.make_child_block(parent, False)
+        if (parent != None):
+            container.make_child_block(parent, False)
+            if parent.EchosEnables: container.enable_echos()
         # Add parameters
         if len(params) != len(this.Parameters):
             raise Exception(f"Length of Given and Expected Parameters do not Match: given {len(params)}, expected {len(this.Parameters)}")
         for i, param in enumerate(this.Parameters.items()):
-            if params[i].typeid != param[1]: raise Exception("Parameter given and expected do not match types!")
+            if params[i].typeid != param[1]: raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].typeid}")
             container.Booker.set(param[0], params[i])
         r:VariableValue = None
         throw_break = False
@@ -54,6 +55,7 @@ class LanFunction:
                 if key not in old_mem_keys: del parent.Booker.Registry[key]
         if throw_break: raise LanErrors.Break()
         return r
+
 # =========== #
 #   Classes   #
 # =========== #
@@ -82,15 +84,16 @@ class LanClass:
         codeBlockLines:str = parent.CleanCodeCache[codeBody.strip()]
         lines = LanClass.clean_code_block(codeBlockLines)
         #print(lines)
-        property_strs:list = [item for item in lines if LanRe.search(LanRe.ProprotyStatement, item, re.MULTILINE)]
+        property_strs:list = [item for item in lines if LanRe.search(LanRe.ProprotyStatement, item)]
         method_strs:list = [item for item in lines if LanRe.search(LanRe.FunctionStatement, item)]
         # Assign Proproties
         for proproty_init in property_strs:
             m = LanRe.match(LanRe.ProprotyStatement, proproty_init)
             p_type = m.group(1)
+            p_typeid = LanTypes.from_string(p_type)
             p_name = m.group(2)
-            p_init = RandomTypeConversions.convert(m.group(3)) if (m.group(3)) else None
-            this.set_property(p_name, LanTypes.from_string(p_type), p_init)
+            p_init = RandomTypeConversions.convert(m.group(3)) if (m.group(3)) else VariableValue(p_typeid, None)
+            this.set_property(p_name, p_typeid, p_init)
         for method_init in method_strs:
             m = LanRe.search(LanRe.FunctionStatement, method_init)
             init_param_str = ",".join(["set this"] + m.group(3).split(','))

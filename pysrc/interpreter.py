@@ -18,6 +18,7 @@ FILE_EXT:str = ".my"
 class MylangeInterpreter:
     Booker:MemoryBooker
     CleanCodeCache:dict[str,str]
+    LambdaCache:dict[str, tuple[str, str, str]]
     BlockTree:str
     LineNumber:int
     StartBlockCacheNumber:int
@@ -82,6 +83,7 @@ class MylangeInterpreter:
             # === Variables === #
             elif LanRe.match(LanRe.VariableDecleration, line):
                 m = LanRe.match(LanRe.VariableDecleration, line)
+                this.echo(f"Beginning Variable Declaration: {line}")
                 #globally:bool = m.group(1)=="global"
                 typeid:int = LanTypes.from_string(m.group(2))
                 name:str = m.group(3)
@@ -91,6 +93,18 @@ class MylangeInterpreter:
                 value = this.format_parameter(value_str)
                 this.echo(f"This is a Variable Declaration! {name}@{typeid}({m.group(2)}) {value}", indent=1)
                 this.Booker.set(name, value)
+            elif (LanRe.match(LanRe.VariableRedeclaration, line)):
+                m = LanRe.match(LanRe.VariableRedeclaration, line)
+                varname:str = m.group(1)
+                varextention:str = m.group(2)
+                newvalue:str = m.group(3)
+                #print(varname, varextention, newvalue)
+                if not this.Booker.find(varname): raise LanErrors.MemoryMissingError()
+                fullvarname:str = varname + (varextention if (varextention != None) else "")
+                var = this.Booker.get(fullvarname)
+                castedvalue = this.format_parameter(newvalue)
+                if castedvalue.typeid != var.typeid: raise LanErrors.WrongTypeExpectationError()
+                var.value = this.format_parameter(newvalue).value
             # === If/Else ===#
             elif LanRe.match(LanRe.IfStatementGeneral, line):
                 # Match to correct if/else block
@@ -139,9 +153,9 @@ class MylangeInterpreter:
                 lan_cls = LanClass(cls_name, cls_body, this)
                 this.Booker.ClassRegistry[cls_name] = lan_cls
             # === Class Property Set === #
-            elif LanRe.match(LanRe.PropertySetStatement, line):
-                m = LanRe.match(LanRe.PropertySetStatement, line)
-                objectMethodMaster.Properties[m.group(1)] = this.format_parameter(m.group(2))
+            # elif LanRe.match(LanRe.PropertySetStatement, line):
+            #     m = LanRe.match(LanRe.PropertySetStatement, line)
+            #     objectMethodMaster.Properties[m.group(1)] = this.format_parameter(m.group(2))
             # === Loops === #
             elif LanRe.match(LanRe.ForStatement, line):
                 m = LanRe.match(LanRe.ForStatement, line)
@@ -202,10 +216,11 @@ class MylangeInterpreter:
             parts.append(this.format_parameter(part))
         return parts
     
-    def format_parameter(this, part:str) -> VariableValue:
+    def format_parameter(this, part:str) -> VariableValue|LanFunction|None:
+        print(ActualRegex.FunctionOrMethodCall)
         part = part.strip()
         this.echo(f"Consitering: {part}", anoyance=2)
-        Return:VariableValue = None
+        Return = None
         if RandomTypeConversions.get_type(part)[0] != 0:
             this.echo("Casted to RandomType", anoyance=2)
             Return = RandomTypeConversions.convert(part, this)
@@ -230,9 +245,17 @@ class MylangeInterpreter:
             this.echo(f"Casted to Arithmetic Expression: {r}", anoyance=2)
             Return = VariableValue(LanTypes.integer, r)
         # Function/Method Call #
-        elif LanRe.match(LanRe.FunctionOrMethodCall, part):
+        elif LanRe.match(ActualRegex.FunctionOrMethodCall, part):
             this.echo("Casted to Function/Method", anoyance=2)
             Return = this.do_function_or_method(part)
+        # Lambda #
+        elif LanRe.match(LanRe.LambdaStatement, part):
+            m = LanRe.match(LanRe.LambdaStatement, part)
+            returnType = m.group(1)
+            paramString = m.group(2)
+            blockCache = this.CleanCodeCache[m.group(3)]
+            this.echo("Casted to Lambda function")
+            Return = LanFunction("lambda", returnType, paramString, blockCache)
         # New Object from Class #
         elif LanRe.match(LanRe.NewClassObjectStatement, part):
             m = LanRe.match(LanRe.NewClassObjectStatement, part)
@@ -253,15 +276,21 @@ class MylangeInterpreter:
                 r = this.Booker.get(part)
                 this.echo(f"Casted to Variable: {r}", anoyance=2)
                 Return = r
-            else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")         
+            # Function #
+            elif part in this.Booker.FunctionRegistry.keys():
+                this.echo("Casted to Function Name")
+                Return = this.Booker.FunctionRegistry[part]
+            else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
+        # Failsafe #
         else:
             this.echo("Casted to Failsafe RandomType Conversion", anoyance=2)
             Return = RandomTypeConversions.convert(part, this)
-
-        if (not isinstance(Return, VariableValue)):
+        if ((not isinstance(Return, VariableValue)) and (not isinstance(Return, LanFunction))):
             raise Exception("How am I not returning the right value? ", Return)
-        else: return Return
-        
+        else: 
+            this.echo(f"Formating: Returning, {Return}")
+            return Return
+    
     def evaluate_boolean(this, condition:str) -> bool:
         if LanRe.match(LanRe.GeneralEqualityStatement, condition):
             bool_m = LanRe.match(LanRe.GeneralEqualityStatement, condition)
@@ -274,26 +303,27 @@ class MylangeInterpreter:
     # be ever treated like a variable.
     SpecialValueWords:list[str] = ["nil", "true", "false"]
     
-    def do_function_or_method(this, string:str) -> any:
-        m = LanRe.match(LanRe.FunctionOrMethodCall, string)
+    def do_function_or_method(this, string:str) -> VariableValue:
+        m = LanRe.match(ActualRegex.FunctionOrMethodCall, string)
         function_or_method:str = m.group(1)
-        parameter_blob:str = m.group(2)
+        var_extention:str = m.group(2)
+        parameter_blob:str = m.group(3)
+        full_base_var_or_function:str = function_or_method + (var_extention if var_extention != None else "")
+        this.echo(f"Full Match: {m.group(0)}; Input: {string}", "DoFu")
+        this.echo(f"Function/Method Name: {full_base_var_or_function}; Param String: {parameter_blob}", "DoFu")
         parameters_formated = this.make_parameter_list(parameter_blob)
-        if MylangeBuiltinFunctions.is_builtin(function_or_method):
-            return MylangeBuiltinFunctions.fire_builtin(this.Booker, function_or_method, parameters_formated)
-        elif function_or_method in this.Booker.FunctionRegistry.keys():
-            parameters = this.make_parameter_list(parameter_blob)
-            r = this.Booker.FunctionRegistry[function_or_method].execute(this, parameters)
-            return r
-        elif '.' in function_or_method:
+        if MylangeBuiltinFunctions.is_builtin(full_base_var_or_function):
+            return MylangeBuiltinFunctions.fire_builtin(this.Booker, full_base_var_or_function, parameters_formated)
+        elif ('.' in full_base_var_or_function):
             # Indicates Method call
-            nodes:list[str] = function_or_method.split('.')
+            nodes:list[str] = full_base_var_or_function.split('.')
             # Decide whether the first node is a variable, or class
             if this.Booker.find(nodes[0]):
                 # Call a type method on the variable
-                var = this.Booker.get(nodes[0])
+                full_var_name:str = nodes[0] + (var_extention if var_extention != None else "")
+                var = this.Booker.get(full_var_name)
                 this.echo(f"Node here {var}")
-                r = VariableTypeMethods.fire_variable_method(nodes[1], var, parameters_formated)
+                r = VariableTypeMethods.fire_variable_method(this, nodes[1], var, parameters_formated)
                 this.echo(f"Altr here {var}")
                 return r
             elif nodes[0] in this.Booker.ClassRegistry.keys():
@@ -301,7 +331,11 @@ class MylangeInterpreter:
                 pass
             else:
                 raise LanErrors.MemoryMissingError("Could not find class or variable with dot-extentions.")
-        else: raise Exception(f"Cannot Find this Function/Method: {function_or_method}")
+        elif full_base_var_or_function in this.Booker.FunctionRegistry.keys():
+            parameters = this.make_parameter_list(parameter_blob)
+            r = this.Booker.FunctionRegistry[full_base_var_or_function].execute(this, parameters)
+            return r
+        else: raise Exception(f"Cannot Find this Function/Method: {full_base_var_or_function}")
 
 # Pre-processes code into interpreter-efficient executions
 class CodeCleaner:
@@ -315,6 +349,8 @@ class CodeCleaner:
             # first, take care of string/char values
             clean_code, qoute_cache = CodeCleaner.confine_qoutes(clean_code)
             cache.update(qoute_cache)
+            # then, confine all of the lambda instances
+
             # then, remove all blocks
             clean_code, block_cache = CodeCleaner.confine_brackets(clean_code, startBlockNumber=startBlockNumber)
             cache.update(block_cache)
@@ -416,6 +452,63 @@ class CodeCleaner:
         result.append(s[last_index:])
         return ''.join(result), blocks
     
+    def extract_type_sequences(text, results=None, start_index=0):
+        if results is None:
+            results = {}
+        cleaned = []
+        index = start_index
+        i = 0
+        length = len(text)
+
+        # Match "type ( ... ) => {" ignoring spacing
+        pattern = re.compile(r"type\s*\([^)]*\)\s*=>\s*{", re.IGNORECASE)
+
+        while i < length:
+            match = pattern.search(text, i)
+            if not match:
+                cleaned.append(text[i:])
+                break
+
+            # Text before match
+            cleaned.append(text[i:match.start()])
+
+            # Find matching braces
+            brace_start = match.end() - 1
+            brace_depth = 0
+            j = brace_start
+            while j < length:
+                if text[j] == "{":
+                    brace_depth += 1
+                elif text[j] == "}":
+                    brace_depth -= 1
+                    if brace_depth == 0:
+                        break
+                j += 1
+
+            if brace_depth != 0:
+                raise ValueError("Unmatched braces in input")
+
+            full_seq = text[match.start():j+1]
+
+            # Recurse on the inside of the braces
+            inside = full_seq[full_seq.index("{")+1:-1]  # content inside {}
+            cleaned_inside, results, index = extract_type_sequences(inside, results, index)
+
+            # Rebuild full sequence with cleaned inner part
+            rebuilt = full_seq[:full_seq.index("{")+1] + cleaned_inside + "}"
+
+            marker = f"###{index}"
+            results[marker] = rebuilt
+            cleaned.append(marker)
+
+            index += 1
+            i = j + 1
+
+        return "".join(cleaned), results, index
+    
+    BlockBeginngings = ['(', '[', '{']
+    BlockEndings = [')', ']', '}']
+
     @staticmethod
     def split_top_level_commas(s) -> list[str]:
         result = []
@@ -427,9 +520,9 @@ class CodeCleaner:
                 result.append(''.join(current))
                 current = []
             else:
-                if char == '(':
+                if char in CodeCleaner.BlockBeginngings:
                     depth += 1
-                elif char == ')':
+                elif char in CodeCleaner.BlockEndings:
                     depth -= 1
                 current.append(char)
 

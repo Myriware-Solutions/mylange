@@ -42,7 +42,6 @@ class MemoryBooker:
     
     def find(this, varQuerry:str) -> bool:
         m = LanRe.match(LanRe.VariableStructure, varQuerry)
-        #if not m: raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
         return (m != None) and (m.group(1) in this.Registry.keys())
 
 class VariableFlags(IntEnum):

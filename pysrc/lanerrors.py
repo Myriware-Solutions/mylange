@@ -34,3 +34,9 @@ class LanErrors:
             this.value = value
             this.message = msg
             super().__init__(this.message)
+    
+    class WrongTypeExpectationError(MylangeError):
+        def __init__(this, msg="Trying to set something to a different type.", value=None):
+            this.value = value
+            this.message = msg
+            super().__init__(this.message)

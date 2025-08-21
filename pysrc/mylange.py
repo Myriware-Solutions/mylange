@@ -1,9 +1,19 @@
 # IMPORTS
+import os
 import sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
 # Vars
 version:str = "0.0.1"
+def clear_terminal():
+    # Check if the operating system is Windows ('nt')
+    if os.name == 'nt':
+        _ = os.system('cls')
+    # Otherwise, assume it's a Unix-like system
+    else:
+        _ = os.system('clear')
+
+
 # Entry point for using the CLI
 linear:bool=False
 params:list[str] = sys.argv
@@ -19,10 +29,32 @@ if not linear:
         r = structure.interpret(f.read())
         AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)
 else:
-    AnsiColor.println(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version}", AnsiColor.CYAN)
+    AnsiColor.println(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version}\nUse CTRL+C or *exit to close the interpreter.", AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")
-    while True:
-        input_str:str = input(AnsiColor.colorize("> ", AnsiColor.MAGENTA))
-        if input_str == "exit": break
-        mi.interpret(input_str)
+    running:bool = True
+    while running:
+        try:
+            input_str:str = input(AnsiColor.colorize("> ", AnsiColor.MAGENTA))
+            match (input_str):
+                case "exit":
+                    print("Trying to exit? Run '*exit'")
+                case "*exit":
+                    running = False
+                case "*clear":
+                    clear_terminal()
+                case "*echoes":
+                    mi.enable_echos()
+                case _:
+                    v = None
+                    try:
+                        v = mi.format_parameter(input_str)
+                    except: pass
+                    if (v):
+                        print(v)
+                    else:
+                        mi.interpret(input_str)
+        except KeyboardInterrupt:
+            running = False
+        except Exception as e:
+            AnsiColor.println(e.with_traceback(), AnsiColor.RED)
     AnsiColor.println(f"Goodbye! :)", AnsiColor.CYAN)

@@ -10,11 +10,14 @@ class Person has {
     };
 
     def nil Greet() as {
-        print("Hello " + this:First + " " + this:Last);
-    }
+        string toprint => "Hello %s %s!";
+        print(toprint.format(this:First, this:Last));
+    };
 };
 
 Person Anthony => new Person("Anthony", "Smith");
 Anthony.Greet();
 
 dump_cache();
+
+return Anthony;

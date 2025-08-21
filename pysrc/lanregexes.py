@@ -6,12 +6,15 @@ class ActualRegex(StrEnum):
     # Redefinitions
     Redefinitions = r"^#!(.*)"
     # Variables
-    VariableDecleration = r"^(.*) *([a-zA-Z]+) +(\w+) *=(>+) *(.*) *"
     VariableStructure = r"^(\w*)([\[\]:\w]+)?"
+    VariableDecleration = r"^(.*) *([a-zA-Z]+) +(\w+) *=(>+) *(.*) *"
+    VariableRedeclaration = r"^(\w*)([\[\]:\w]+)? *=> *(.*) *$"
     # Functions
     FunctionStatement = r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)"
-    FunctionOrMethodCall = r"^([\w.]+) *\((.*)\)"
+    FunctionOrMethodCall = VariableStructure.replace(r"(\w*)", r"([\w.]*)").replace(r":", r":.") + r" *\((.*)\) *$"
     ReturnStatement= r"^return *(.*)"
+    LambdaStatement = r"(\w+) *\(([\w ,]+)\) *as *(\w+)"
+    LambdaStatementFull = r"(\w+) *\(([\w ,]+)\) *=> *{(\w+)}"
     # Caches
     CachedBlock = r"(0x[a-fA-F0-9]+)"
     CachedChar = r"(1x[a-fA-F0-9]+)"
@@ -32,14 +35,14 @@ class ActualRegex(StrEnum):
     IfElseStatement = r"if *\((.*)\) *then +(.*?) +else +(.*)"
     IfStatement = r"if *\((.*)\) *then +(.*)"
     # Boolean
-    GeneralEqualityStatement = r"^(.*?) *([=<>!]+) *(.*)"
+    GeneralEqualityStatement = r"^(.*?) *([=<>!]+) *(.*) *$"
     # Arithmetics
-    GeneralArithmetics = r"^(.*?) *([+\-*\/]+) *(.*)"
+    GeneralArithmetics = r"^(.*?) *([+\-*\/]+) *(.*) *$"
 
 class LanReClass:
     ImportStatement:str
-    VariableDecleration:str; VariableStructure:str
-    FunctionStatement:str; FunctionOrMethodCall:str; ReturnStatement:str
+    VariableDecleration:str; VariableStructure:str; VariableRedeclaration:str
+    FunctionStatement:str; FunctionOrMethodCall:str; ReturnStatement:str; LambdaStatement:str
     CachedBlock:str; CachedChar:str; CachedString:str
     ForStatement:str; WhileStatement:str; BreakStatement:str
     ClassStatement:str; ProprotyStatement:str; NewClassObjectStatement:str; PropertySetStatement:str

@@ -2,8 +2,14 @@
 import inspect
 
 from memory import MemoryBooker
-from lantypes import VariableValue, LanTypes, RandomTypeConversions
+from lantypes import VariableValue, LanTypes
 from interface import AnsiColor
+from lanclass import LanFunction
+
+def EnsureIntegrety(*params:tuple[int, VariableValue]) -> bool:
+    for param in params:
+        if param[0] != param[1].typeid: return False
+    return True
 
 class MylangeBuiltinFunctions:
     @staticmethod
@@ -26,19 +32,33 @@ class MylangeBuiltinFunctions:
             AnsiColor.println(f"{k} @ {v.typeid} => {v}", AnsiColor.BRIGHT_BLUE)
 
     @staticmethod
-    def print(_, *params:any) -> None:
+    def print(_, *params:VariableValue) -> None:
         for param in list(params): print(param.to_string())
     
     @staticmethod
-    def input(_, prompt:VariableValue) -> str:
+    def input(_, prompt:VariableValue) -> VariableValue:
         return VariableValue(LanTypes.string, input(prompt.value))
+    
+    @staticmethod
+    def set_assign(_, setObject:VariableValue, key:VariableValue, value:VariableValue):
+        setObjectDict:dict[str, VariableValue] = setObject.value
+        setObjectDict[key.value] = value
+    
+    @staticmethod
+    def load(_, filePath:VariableValue) -> VariableValue:
+        from interpreter import MylangeInterpreter
+        structure:MylangeInterpreter = MylangeInterpreter("Main")
+        print("Found here")
+        with open(filePath.value, "r", encoding='utf-8') as f:
+            r = structure.interpret(f.read())
+            return r
     
 class VariableTypeMethods:
     @staticmethod
     def get_type(i:int):
         match(i):
             case LanTypes.integer:
-                return VariableTypeMethods.Interger
+                return VariableTypeMethods.Intager
             case LanTypes.string:
                 return VariableTypeMethods.String
             case LanTypes.array:
@@ -53,40 +73,122 @@ class VariableTypeMethods:
         return False
     
     @staticmethod
-    def fire_variable_method(method:str, var:VariableValue, params:list[VariableValue]) -> any:
+    def fire_variable_method(parent, method:str, var:VariableValue, params:list[VariableValue]) -> any:
         if (var.typeid > -1):
             # Mylange Class
             clazz = VariableTypeMethods.get_type(var.typeid)
             if VariableTypeMethods.is_applitable(var.typeid, method):
                 attribute = getattr(clazz, method)
-                return attribute(var, *params)
+                return attribute(parent, var, *params)
             else: raise Exception(f"This method does not exist on this type: {method} @ {var.typeid}")
         else:
             # User Defined Class
             return var.value.do_method(method, params)
 
-    class Interger:
+    class Intager:
         @staticmethod
-        def add(var:VariableValue, amount:VariableValue) -> None:
+        def add(_, var:VariableValue, amount:VariableValue) -> None:
             var.value = var.value + amount.value
 
         @staticmethod
-        def toString(var:VariableValue) -> VariableValue:
+        def toString(_, var:VariableValue) -> VariableValue:
             return VariableValue(LanTypes.string, f"{var.value}")
 
     class String:
+        # Use:
+        # Returns a character at the index in the string.
+        # chatAt(integar index)
+        # index: (integar) The index to get the character at.
         @staticmethod
-        def charAt(var:VariableValue, index:VariableValue) -> VariableValue:
+        def charAt(_, var:VariableValue, index:VariableValue) -> VariableValue:
             return VariableValue(LanTypes.string, var.value[index.value])
-
+        
+        @staticmethod
+        def format(_, var:VariableValue, destructive:VariableValue=VariableValue(LanTypes.boolean, False), 
+                   *replacements:VariableValue) -> VariableValue:
+            Return:str = var.value + ""
+            for replacement in replacements:
+                Return = Return.replace(f'%s', replacement.value, 1)
+            if destructive.value:
+                var.value = Return
+                return VariableValue(LanTypes.nil, None)
+            return VariableValue(LanTypes.string, Return)
+        
+        # Use:
+        # Replaces the first instance of the found string.
+        # replace(string old, string new, boolean? destructive)
+        # old: (string) The value to look for and will be replaced
+        # new: (string) The value that will be put in the old's place
+        # [desctructive]: (boolean?) Optional. Whether or not to modify the existing string, or return a new one.
+        @staticmethod
+        def replace(_, var:VariableValue, old:VariableValue, new:VariableValue, 
+                    destructive:VariableValue=VariableValue(LanTypes.boolean, False)) -> VariableValue:
+            replaced_string:str = var.value.replace(old.value, new.value, 1)
+            if destructive.value:
+                var.value = replaced_string
+                return VariableValue(LanTypes.nil, None)
+            return VariableValue(LanTypes.string, replaced_string)
+        
+        # Use:
+        # Replaces all or a specified amount of instances of a string.
+        # replace(string old, string new, integar? limit, boolean? destructive)
+        # old: (string) The value to look for and will be replaced
+        # new: (string) The value that will be put in the old's place
+        # [limit]: (int?) The amount of instances to replace. If the value is -1 (default), then all instances are replaced.
+        # [desctructive]: (boolean?) Optional. Whether or not to modify the existing string, or return a new one.
+        @staticmethod
+        def replaceAll(_, var:VariableValue, old:VariableValue, new:VariableValue, 
+                       limit:VariableValue=VariableValue(LanTypes.integer, -1),
+                       destructive:VariableValue=VariableValue(LanTypes.boolean, False) ) -> VariableValue:
+            replaced_string:str = var.value.replace(old.value, new.value, limit.value)
+            if destructive.value:
+                var.value = replaced_string
+                return VariableValue(LanTypes.nil, None)
+            return VariableValue(LanTypes.string, replaced_string)
+            
     class Array:
         @staticmethod
-        def concat(var:VariableValue, seperator:VariableValue=None) -> VariableValue:
+        def concat(_, var:VariableValue, seperator:VariableValue=None) -> VariableValue:
             seperator:str = seperator.value if seperator != None else ' '
             return VariableValue(LanTypes.string, seperator.join([item.to_string() for item in var.value]))
         
         @staticmethod
-        def append(var:VariableValue, *elements) -> None:
+        def append(_, var:VariableValue, *elements) -> None:
             l:list = var.value
             for ele in list(elements):
                 l.append(ele)
+
+        # Use:
+        # .where(function callback, array additional)
+        # callback: (function) A function that takes one parameter, and returns a boolean value of some evaluation.
+        # [params]: (array?) Any values that should be passed into the function that would not be found locally within the function.
+        @staticmethod
+        def where(parent, var:VariableValue, callback:LanFunction, paramsArray:VariableValue=VariableValue(LanTypes.array, [])) -> VariableValue:
+            if callback.ReturnType != LanTypes.boolean: raise Exception("This function cannot be used, as it does not return boolean.")
+            items:list[VariableValue] = var.value
+            params:list[VariableValue] = paramsArray.value
+            Return = []
+            for item in items:
+                valid:VariableValue = callback.execute(parent, [item] + params)
+                if valid.value: Return.append(item)
+            return VariableValue(LanTypes.array, Return)
+        
+        @staticmethod
+        def find(parent, var:VariableValue, callback:LanFunction, paramsArray:VariableValue) -> VariableValue:
+            whereArray:list[VariableValue] = VariableTypeMethods.Array.where(parent, var, callback, paramsArray).value
+            Result = True if len(whereArray) > 0 else False
+            return VariableValue(LanTypes.boolean, Result)
+        
+        @staticmethod
+        def length(_, var:VariableValue) -> VariableValue:
+            return VariableValue(LanTypes.integer, len(var.value))
+        
+        @staticmethod
+        def indexOf(_, var:VariableValue, item:VariableValue) -> VariableValue:
+            array:list[VariableValue] = var.value
+            i:int = 0
+            for aitem in array:
+                if aitem.value == item.value:
+                    return VariableValue(LanTypes.integer, i)
+                i += 1
+            return VariableValue(LanTypes.integer, -1)

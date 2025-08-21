@@ -16,7 +16,7 @@ class VariableValue:
             case LanTypes.nil:
                 return 'nil'
             case LanTypes.boolean:
-                return this.value.lower()
+                return f"{this.value}".lower()
             case LanTypes.integer:
                 return f"{this.value}"
             case LanTypes.character:
@@ -128,7 +128,7 @@ class LanTypes(IntEnum):
     character = 3
     string    = 4
     array     = 5
-    set       = 6 #TODO: implement
+    set       = 6
 
     @staticmethod
     def is_valid_type(typeid:int):
