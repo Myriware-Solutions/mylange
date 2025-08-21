@@ -49,7 +49,7 @@ else:
                     try:
                         v = mi.format_parameter(input_str)
                     except: pass
-                    if (v):
+                    if (v != None):
                         print(v)
                     else:
                         mi.interpret(input_str)

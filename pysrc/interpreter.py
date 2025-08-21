@@ -320,11 +320,10 @@ class MylangeInterpreter:
             # Decide whether the first node is a variable, or class
             if this.Booker.find(nodes[0]):
                 # Call a type method on the variable
-                full_var_name:str = nodes[0] + (var_extention if var_extention != None else "")
+                full_var_name:str = nodes[0]
                 var = this.Booker.get(full_var_name)
-                this.echo(f"Node here {var}")
+                this.echo(f"Attempting to evaluate method on '{var}'", "DoFu")
                 r = VariableTypeMethods.fire_variable_method(this, nodes[1], var, parameters_formated)
-                this.echo(f"Altr here {var}")
                 return r
             elif nodes[0] in this.Booker.ClassRegistry.keys():
                 #TODO: Call static methods on the class
