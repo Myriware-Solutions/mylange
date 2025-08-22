@@ -342,14 +342,6 @@ class MylangeInterpreter:
         else: 
             this.echo(f"Formating: Returning, {Return}")
             return Return
-    
-    def evaluate_boolean(this, condition:str) -> bool:
-        if ActualRegex.GeneralEqualityStatement.value.search(condition):
-            bool_m = ActualRegex.GeneralEqualityStatement.value.match(condition)
-            left:any = this.format_parameter(bool_m.group(1))
-            operation:str = bool_m.group(2)
-            right:any = this.format_parameter(bool_m.group(3))
-            return LanBooleanStatementLogic.evaluate(left, operation, right)
 
     # Certain variable-name capatible words that should not
     # be ever treated like a variable.
