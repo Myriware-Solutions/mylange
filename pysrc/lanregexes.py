@@ -40,4 +40,4 @@ class ActualRegex(Enum):
     # Boolean
     GeneralEqualityStatement = re.compile(r"^(.*?) *([=<>!]+) *(.*) *$", flags=re.UNICODE)
     # Arithmetics
-    GeneralArithmetics = re.compile(r"^(.*?) *([+\-*\/]+) *(.*) *$", flags=re.UNICODE)
+    GeneralArithmetics = re.compile(r"^(.*?) *([.+\-*\/]+) *(.*) *$", flags=re.UNICODE)

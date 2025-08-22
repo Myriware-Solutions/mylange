@@ -55,3 +55,10 @@ for <type> var in inumerable do
 
 Takes an array, and loops the code over it.
 The `var` is used for each element of the dataset.
+
+## Arithmetics
+
+Both boolean expressions and mathematic statements are consitered
+under Arithmetics as they share the same processor logic.
+
+**Note: Unlike mathematics, all operations are executed LEFT TO RIGHT, not by operation order (P.E.M.D.A.S)**

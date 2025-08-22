@@ -13,7 +13,6 @@ def clear_terminal():
     else:
         _ = os.system('clear')
 
-
 # Entry point for using the CLI
 linear:bool=False
 params:list[str] = sys.argv
@@ -49,7 +48,7 @@ else:
                     try:
                         v = mi.format_parameter(input_str)
                     except: pass
-                    if (v != None):
+                    if (v != None) and (v.value != None):
                         print(v)
                     else:
                         mi.interpret(input_str)
@@ -57,5 +56,5 @@ else:
             running = False
             print("\n")
         except Exception as e:
-            AnsiColor.println(e.with_traceback(), AnsiColor.RED)
+            AnsiColor.println(e, AnsiColor.RED)
     AnsiColor.println(f"Goodbye! :)", AnsiColor.CYAN)

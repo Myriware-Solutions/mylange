@@ -9,10 +9,16 @@ from lanclass import LanFunction
 NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
 
 
-def EnsureIntegrety(*params:tuple[int, VariableValue]) -> bool:
+def EnsureIntegrety(*params:tuple[VariableValue, int]) -> bool:
     for param in params:
-        if param[0] != param[1].typeid: return False
+        if param[1] != param[0].typeid: return False
     return True
+
+def GetTypesOfParameters(*params:VariableValue) -> list[LanTypes]:
+    Return = []
+    for param in params:
+        Return.append(param.typeid)
+    return Return
 
 class MylangeBuiltinFunctions:
     @staticmethod
@@ -89,9 +95,12 @@ class VariableTypeMethods:
             return var.value.do_method(method, params)
 
     class Intager:
+        # Add a number to the variable,
+        # returning a reference to the variable
         @staticmethod
         def add(_, var:VariableValue, amount:VariableValue) -> None:
             var.value = var.value + amount.value
+            return var
 
         @staticmethod
         def toString(_, var:VariableValue) -> VariableValue:

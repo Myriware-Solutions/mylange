@@ -6,7 +6,7 @@ import copy
 from lanregexes import ActualRegex
 from memory import MemoryBooker
 from lantypes import LanTypes, VariableValue, RandomTypeConversions
-from booleanlogic import LanBooleanStatementLogic
+#from booleanlogic import LanBooleanStatementLogic
 from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions, VariableTypeMethods
 from lanerrors import LanErrors
@@ -293,26 +293,9 @@ class MylangeInterpreter:
         if RandomTypeConversions.get_type(part)[0] != 0:
             this.echo("Casted to RandomType", anoyance=2)
             Return = RandomTypeConversions.convert(part, this)
-        # Boolean #
-        elif ActualRegex.GeneralEqualityStatement.value.search(part):
-            m = ActualRegex.GeneralEqualityStatement.value.match(part)
-            r = LanBooleanStatementLogic.evaluate(
-                this.format_parameter(m.group(1)),
-                m.group(2),
-                this.format_parameter(m.group(3))
-            )
-            this.echo(f"Casted to Boolean Expression: {r}", anoyance=2)
-            Return = VariableValue(LanTypes.boolean, r)
-        # Math #
-        elif ActualRegex.GeneralArithmetics.value.search(part):
-            m = ActualRegex.GeneralArithmetics.value.match(part)
-            r = LanArithmetics.evaluate(
-                this.format_parameter(m.group(1)),
-                m.group(2),
-                this.format_parameter(m.group(3))
-            )
-            this.echo(f"Casted to Arithmetic Expression: {r}", anoyance=2)
-            Return = VariableValue(LanTypes.integer, r)
+        # Arithmetics #
+        elif LanArithmetics.is_arithmetic(part):
+            Return = LanArithmetics.evalute_string(this, part)
         # Function/Method Call #
         elif ActualRegex.FunctionOrMethodCall.value.search(part):
             this.echo("Casted to Function/Method", anoyance=2)
