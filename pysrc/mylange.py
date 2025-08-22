@@ -55,6 +55,7 @@ else:
                         mi.interpret(input_str)
         except KeyboardInterrupt:
             running = False
+            print("\n")
         except Exception as e:
             AnsiColor.println(e.with_traceback(), AnsiColor.RED)
     AnsiColor.println(f"Goodbye! :)", AnsiColor.CYAN)

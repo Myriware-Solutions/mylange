@@ -1,5 +1,5 @@
 # IMPORTS
-from lanregexes import LanRe
+from lanregexes import ActualRegex
 from lantypes import RandomTypeConversions
 from lantypes import VariableValue
 # Handles Arithmetics of All kinds
@@ -12,8 +12,8 @@ class LanArithmetics:
     }
     @staticmethod
     def evalute_string(string:str) -> any:
-        if LanRe.search(LanRe.GeneralArithmetics, string):
-            m = LanRe.match(LanRe.GeneralArithmetics, string)
+        if ActualRegex.GeneralArithmetics.value.search(string):
+            m = ActualRegex.GeneralArithmetics.value.match(string)
             left = RandomTypeConversions.convert(m.group(1)).value
             operation = m.group(2)
             right = RandomTypeConversions.convert(m.group(3)).value

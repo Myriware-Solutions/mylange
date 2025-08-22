@@ -1,7 +1,7 @@
 # IMPORTS
 import re
 
-from lanregexes import LanRe
+from lanregexes import ActualRegex
 from lanerrors import LanErrors
 from lantypes import VariableValue
 from enum import IntEnum, StrEnum
@@ -27,7 +27,7 @@ class MemoryBooker:
 
     def get(this, varQuerry:str) -> VariableValue:
         if not this.find(varQuerry): raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
-        m = LanRe.match(LanRe.VariableStructure, varQuerry)
+        m = ActualRegex.VariableStructure.value.match(varQuerry)
         varin = this.Registry[m.group(1)]
         if m.group(2):
             extention_m = re.findall(VarQuerryParts.AllMacthes, m.group(2), flags=re.UNICODE)
@@ -41,7 +41,7 @@ class MemoryBooker:
         return varin
     
     def find(this, varQuerry:str) -> bool:
-        m = LanRe.match(LanRe.VariableStructure, varQuerry)
+        m = ActualRegex.VariableStructure.value.match(varQuerry)
         return (m != None) and (m.group(1) in this.Registry.keys())
 
 class VariableFlags(IntEnum):

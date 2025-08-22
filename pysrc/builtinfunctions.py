@@ -6,6 +6,9 @@ from lantypes import VariableValue, LanTypes
 from interface import AnsiColor
 from lanclass import LanFunction
 
+NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
+
+
 def EnsureIntegrety(*params:tuple[int, VariableValue]) -> bool:
     for param in params:
         if param[0] != param[1].typeid: return False
@@ -73,7 +76,7 @@ class VariableTypeMethods:
         return False
     
     @staticmethod
-    def fire_variable_method(parent, method:str, var:VariableValue, params:list[VariableValue]) -> any:
+    def fire_variable_method(parent, method:str, var:VariableValue, params:list[VariableValue]) -> VariableValue:
         if (var.typeid > -1):
             # Mylange Class
             clazz = VariableTypeMethods.get_type(var.typeid)
@@ -111,7 +114,7 @@ class VariableTypeMethods:
                 Return = Return.replace(f'%s', replacement.value, 1)
             if destructive.value:
                 var.value = Return
-                return VariableValue(LanTypes.nil, None)
+                return NIL_RETURN
             return VariableValue(LanTypes.string, Return)
         
         # Use:
@@ -126,7 +129,7 @@ class VariableTypeMethods:
             replaced_string:str = var.value.replace(old.value, new.value, 1)
             if destructive.value:
                 var.value = replaced_string
-                return VariableValue(LanTypes.nil, None)
+                return NIL_RETURN
             return VariableValue(LanTypes.string, replaced_string)
         
         # Use:
@@ -143,8 +146,12 @@ class VariableTypeMethods:
             replaced_string:str = var.value.replace(old.value, new.value, limit.value)
             if destructive.value:
                 var.value = replaced_string
-                return VariableValue(LanTypes.nil, None)
+                return NIL_RETURN
             return VariableValue(LanTypes.string, replaced_string)
+        
+        @staticmethod
+        def print(_, var:VariableValue) -> None:
+            print(var)
             
     class Array:
         @staticmethod
@@ -157,6 +164,7 @@ class VariableTypeMethods:
             l:list = var.value
             for ele in list(elements):
                 l.append(ele)
+            return NIL_RETURN
 
         # Use:
         # .where(function callback, array additional)
@@ -192,3 +200,10 @@ class VariableTypeMethods:
                     return VariableValue(LanTypes.integer, i)
                 i += 1
             return VariableValue(LanTypes.integer, -1)
+        
+        # Destructivly alters an array and adds a range from [begining, end) into it, returning a reference to it.
+        @staticmethod
+        def makeRange(_, var:VariableValue, end:VariableValue, begining:VariableValue=VariableValue(LanTypes.integer, 0)) -> VariableValue:
+            r = [VariableValue(LanTypes.integer, i) for i in list(range(begining.value, end.value))]
+            var.value.extend(r)
+            return var

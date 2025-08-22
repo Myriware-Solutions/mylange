@@ -4,7 +4,7 @@ import copy
 
 from lantypes import LanTypes, VariableValue, RandomTypeConversions
 from lanerrors import LanErrors
-from lanregexes import LanRe
+from lanregexes import ActualRegex
 # =========== #
 #  Functions  #
 # =========== #
@@ -84,18 +84,18 @@ class LanClass:
         codeBlockLines:str = parent.CleanCodeCache[codeBody.strip()]
         lines = LanClass.clean_code_block(codeBlockLines)
         #print(lines)
-        property_strs:list = [item for item in lines if LanRe.search(LanRe.ProprotyStatement, item)]
-        method_strs:list = [item for item in lines if LanRe.search(LanRe.FunctionStatement, item)]
+        property_strs:list = [item for item in lines if ActualRegex.ProprotyStatement.value.search(item)]
+        method_strs:list = [item for item in lines if ActualRegex.FunctionStatement.value.search(item)]
         # Assign Proproties
         for proproty_init in property_strs:
-            m = LanRe.match(LanRe.ProprotyStatement, proproty_init)
+            m = ActualRegex.ProprotyStatement.value.match(proproty_init)
             p_type = m.group(1)
             p_typeid = LanTypes.from_string(p_type)
             p_name = m.group(2)
             p_init = RandomTypeConversions.convert(m.group(3)) if (m.group(3)) else VariableValue(p_typeid, None)
             this.set_property(p_name, p_typeid, p_init)
         for method_init in method_strs:
-            m = LanRe.search(LanRe.FunctionStatement, method_init)
+            m = ActualRegex.FunctionStatement.value.match(proproty_init)
             init_param_str = ",".join(["set this"] + m.group(3).split(','))
             funct = LanFunction(m.group(2), m.group(1), init_param_str, parent.CleanCodeCache[m.group(4)])
             this.Methods[m.group(2)] =  funct

@@ -1,80 +1,43 @@
 # IMPORTS
 import re
-from enum import StrEnum
+from enum import StrEnum, Enum, unique
 
-class ActualRegex(StrEnum):
+VariableStructureRaw = r"^(\w*)([\[\]:\w]+)?"
+
+@unique
+class ActualRegex(Enum):
     # Redefinitions
-    Redefinitions = r"^#!(.*)"
+    Redefinitions = re.compile(r"^#!(.*)", flags=re.UNICODE)
     # Variables
-    VariableStructure = r"^(\w*)([\[\]:\w]+)?"
-    VariableDecleration = r"^(.*) *([a-zA-Z]+) +(\w+) *=(>+) *(.*) *"
-    VariableRedeclaration = r"^(\w*)([\[\]:\w]+)? *=> *(.*) *$"
+    VariableStructure = re.compile(VariableStructureRaw, flags=re.UNICODE)
+    VariableDecleration = re.compile(r"^(.*) *([a-zA-Z]+) +(\w+) *=(>+) *(.*) *", flags=re.UNICODE)
+    VariableRedeclaration = re.compile(r"^(\w*)([\[\]:\w]+)? *=> *(.*) *$", flags=re.UNICODE)
     # Functions
-    FunctionStatement = r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)"
-    FunctionOrMethodCall = VariableStructure.replace(r"(\w*)", r"([\w.]*)").replace(r":", r":.") + r" *\((.*)\) *$"
-    ReturnStatement= r"^return *(.*)"
-    LambdaStatement = r"(\w+) *\(([\w ,]+)\) *as *(\w+)"
-    LambdaStatementFull = r"(\w+) *\(([\w ,]+)\) *=> *{(\w+)}"
+    FunctionStatement = re.compile(r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)", flags=re.UNICODE)
+    FunctionOrMethodCall = re.compile(VariableStructureRaw.replace(r"(\w*)", r"([\w.]*)").replace(r":", r":.") + r" *\((.*)\) *$", flags=re.UNICODE)
+    ReturnStatement= re.compile(r"^return *(.*)", flags=re.UNICODE)
+    LambdaStatement = re.compile(r"(\w+) *\(([\w ,]+)\) *as *(\w+)", flags=re.UNICODE)
+    LambdaStatementFull = re.compile(r"(\w+) *\(([\w ,]+)\) *=> *{(\w+)}", flags=re.UNICODE)
     # Caches
-    CachedBlock = r"(0x[a-fA-F0-9]+)"
-    CachedChar = r"(1x[a-fA-F0-9]+)"
-    CachedString = r"^(2x[a-fA-F0-9]+)"
+    CachedBlock = re.compile(r"(0x[a-fA-F0-9]+)", flags=re.UNICODE)
+    CachedChar = re.compile(r"(1x[a-fA-F0-9]+)", flags=re.UNICODE)
+    CachedString = re.compile(r"^(2x[a-fA-F0-9]+)", flags=re.UNICODE)
     # Imports
-    ImportStatement = r"from +(\w+) +import +([\w, ]+)"
+    ImportStatement = re.compile(r"from +(\w+) +import +([\w, ]+)", flags=re.UNICODE)
     # Loops
-    ForStatement = r"for +(\w+) +([a-zA-Z]+) +in +(.+) +do (.+)"
-    WhileStatement = r"^while *\((.*)\) *do +(.*)"
-    BreakStatement = r"^break"
+    ForStatement = re.compile(r"for +(\w+) +([a-zA-Z]+) +in +(.+) +do (.+)", flags=re.UNICODE)
+    WhileStatement = re.compile(r"^while *\((.*)\) *do +(.*)", flags=re.UNICODE)
+    BreakStatement = re.compile(r"^break", flags=re.UNICODE)
     # Classes
-    ClassStatement = r"^class +([a-zA-Z]\w*) +has +(.*)"
-    ProprotyStatement = r"^prop +([a-zA-Z\[\]]+) +(\w+)(?: *=> *(.*) *)?"
-    NewClassObjectStatement = r"new +([a-zA-Z]\w*) *\((.*)\)"
-    PropertySetStatement = r"this:(.+) +=> +(.*)"
+    ClassStatement = re.compile(r"^class +([a-zA-Z]\w*) +has +(.*)", flags=re.UNICODE)
+    ProprotyStatement = re.compile(r"^prop +([a-zA-Z\[\]]+) +(\w+)(?: *=> *(.*) *)?", flags=re.UNICODE)
+    NewClassObjectStatement = re.compile(r"new +([a-zA-Z]\w*) *\((.*)\)", flags=re.UNICODE)
+    PropertySetStatement = re.compile(r"this:(.+) +=> +(.*)", flags=re.UNICODE)
     # If/Else Statements
-    IfStatementGeneral = r"if +\(.*\) +then +.*"
-    IfElseStatement = r"if *\((.*)\) *then +(.*?) +else +(.*)"
-    IfStatement = r"if *\((.*)\) *then +(.*)"
+    IfStatementGeneral = re.compile(r"if +\(.*\) +then +.*", flags=re.UNICODE)
+    IfElseStatement = re.compile(r"if *\((.*)\) *then +(.*?) +else +(.*)", flags=re.UNICODE)
+    IfStatement = re.compile(r"if *\((.*)\) *then +(.*)", flags=re.UNICODE)
     # Boolean
-    GeneralEqualityStatement = r"^(.*?) *([=<>!]+) *(.*) *$"
+    GeneralEqualityStatement = re.compile(r"^(.*?) *([=<>!]+) *(.*) *$", flags=re.UNICODE)
     # Arithmetics
-    GeneralArithmetics = r"^(.*?) *([+\-*\/]+) *(.*) *$"
-
-class LanReClass:
-    ImportStatement:str
-    VariableDecleration:str; VariableStructure:str; VariableRedeclaration:str
-    FunctionStatement:str; FunctionOrMethodCall:str; ReturnStatement:str; LambdaStatement:str
-    CachedBlock:str; CachedChar:str; CachedString:str
-    ForStatement:str; WhileStatement:str; BreakStatement:str
-    ClassStatement:str; ProprotyStatement:str; NewClassObjectStatement:str; PropertySetStatement:str
-    IfStatementGeneral:str; IfElseStatement:str; IfStatement:str
-    GeneralEqualityStatement:str; GeneralArithmetics:str
-
-    Translations:dict[str,str] = { }
-
-    def __getattribute__(this, name:str) -> str:
-        match (name):
-            case "add_translation":
-                return super().__getattribute__("add_translation")
-            case "search":
-                return super().__getattribute__("search")
-            case "match":
-                return super().__getattribute__("match")
-            case "Translations":
-                return super().__getattribute__("Translations")
-            case _:
-                baseString:str = ActualRegex[name]
-                for key, value in this.Translations.items():
-                    baseString = baseString.replace(key, value)
-                return baseString
-    def add_translation(this, key:str, value:str) -> None:
-        if key in this.Translations.keys():
-            raise Exception("Cannot override translations.")
-        this.Translations[key] = value
-
-    def search(_, regex:str, string:str) -> re.Match[str] | None:
-        return re.search(regex, string, flags=re.UNICODE)
-    
-    def match(_, regex:str, string:str) -> re.Match[str] | None:
-        return re.search(regex, string, flags=re.UNICODE)
-
-LanRe = LanReClass()
+    GeneralArithmetics = re.compile(r"^(.*?) *([+\-*\/]+) *(.*) *$", flags=re.UNICODE)

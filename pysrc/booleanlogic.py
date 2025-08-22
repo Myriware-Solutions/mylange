@@ -1,7 +1,8 @@
 # IMPORTS
+import re
 from memory import MemoryBooker
 from lantypes import RandomTypeConversions, VariableValue
-from lanregexes import LanRe
+from lanregexes import ActualRegex
 #from interpreter import MylangeInterpreter
 # Class to Handle Boolean Logic Statements
 class LanBooleanStatementLogic:
@@ -16,8 +17,8 @@ class LanBooleanStatementLogic:
     @staticmethod
     def evalute_string(string:str) -> any:
         # Check against Equality (==, <, <=, >, >=, !=)
-        if LanRe.search(LanRe.GeneralEqualityStatement, string):
-            m = LanRe.match(LanRe.GeneralEqualityStatement, string)
+        if ActualRegex.GeneralEqualityStatement.value.search(string):
+            m = ActualRegex.GeneralEqualityStatement.value.match(string)
             #TODO: Convert these into Antomonus Casted values
             left = RandomTypeConversions.convert(m.group(1))
             operation = m.group(2)
