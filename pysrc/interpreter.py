@@ -52,6 +52,13 @@ class MatchBox:
     # ============= #
     # Line Matchers #
     # ============= #
+    class ReturnStatement(LineMatcher):
+        pattern = ActualRegex.ReturnStatement.value
+        @classmethod
+        def handle(cls, this, m):
+            r = this.format_parameter(m.group(1))
+            this.echo(f"Returning a value: {r}", "re", 1)
+            return r
     class ImportStatement(LineMatcher):
         pattern = ActualRegex.ImportStatement.value
         @classmethod
@@ -140,6 +147,7 @@ class MatchBox:
             function_code_string = m.group(4)
             funct = LanFunction(function_name, return_type, function_parameters_string, function_code_string)
             this.Booker.FunctionRegistry[function_name] = funct
+            this.echo(f"Registered function by name: {function_name}")
             return NIL_RETURN
     class ClassDeclaration(LineMatcher):
         pattern = ActualRegex.ClassStatement.value 
@@ -192,11 +200,7 @@ class MatchBox:
         def handle(cls, this, m):
             this.echo("Break Called")
             raise LanErrors.Break()
-    class ReturnStatement(LineMatcher):
-        pattern = ActualRegex.ReturnStatement.value
-        @classmethod
-        def handle(cls, this, m):
-            return this.format_parameter(m.group(1))
+    
     # =============== #
     # Format Matchers #
     # =============== #
@@ -250,16 +254,19 @@ class MylangeInterpreter:
 
     def interpret_logic(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue:
         lines:list[str] = this.make_chucks(string, overrideClean, this.StartBlockCacheNumber)
-        Return:VariableValue = VariableValue(LanTypes.nil, None)
+        Return:VariableValue = VariableValue(LanTypes.nil, None); macthed:bool = False
         for line in lines:
             this.echo(line, "MyInLoop")
             # Match the type of line
             for matcher in all_matchers(LineMatcher):
                 result = matcher.match(this, line)
                 if result is not None:
+                    macthed = True
                     this.LineNumber += 1
-                    return result
-            raise LanErrors.MylangeError("Could not match this to anything?")
+                    if result.typeid != LanTypes.nil:
+                        Return = result
+                        break
+            if not macthed: raise LanErrors.MylangeError("Could not match this to anything?")
         return Return
 
     def make_chucks(this, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
@@ -296,6 +303,7 @@ class MylangeInterpreter:
         # Arithmetics #
         elif LanArithmetics.is_arithmetic(part):
             Return = LanArithmetics.evalute_string(this, part)
+            this.echo(f"Casted to Arithmetic; returning {Return}", anoyance=2)
         # Function/Method Call #
         elif ActualRegex.FunctionOrMethodCall.value.search(part):
             this.echo("Casted to Function/Method", anoyance=2)
@@ -337,10 +345,11 @@ class MylangeInterpreter:
         else:
             this.echo("Casted to Failsafe RandomType Conversion", anoyance=2)
             Return = RandomTypeConversions.convert(part, this)
+        
         if ((not isinstance(Return, VariableValue)) and (not isinstance(Return, LanFunction))):
             raise Exception("How am I not returning the right value? ", Return)
         else: 
-            this.echo(f"Formating: Returning, {Return}")
+            this.echo(f"Formating: Returning {Return}")
             return Return
 
     # Certain variable-name capatible words that should not
@@ -364,8 +373,12 @@ class MylangeInterpreter:
         return working_var
         
     def evalute_method(this, base:VariableValue, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|None:
+        # Create Virtual Workspace
         Return:VariableValue|LanFunction|None = None
-        if (MylangeBuiltinFunctions.is_builtin(methodName)) and chainIndex == 0:
+        if (RandomTypeConversions.convert(methodName, this).typeid != LanTypes.nil) and chainIndex == 0:
+            # A Random Type Instance, at the base
+            Return = RandomTypeConversions.convert(methodName, this)
+        elif (MylangeBuiltinFunctions.is_builtin(methodName)) and chainIndex == 0:
             # Mylange base function
             Return = MylangeBuiltinFunctions.fire_builtin(this.Booker, methodName, methodParameters)
         elif isinstance(base, VariableValue) and (VariableTypeMethods.is_applitable(base.typeid, methodName)):
@@ -383,9 +396,6 @@ class MylangeInterpreter:
         elif (this.Booker.find(methodName)) and chainIndex == 0:
             # Variable, most likely as a chain base
             Return = this.Booker.get(methodName)
-        elif (RandomTypeConversions.convert(methodName, this) != None) and chainIndex == 0:
-            # A Random Type Instance, at the base
-            Return = RandomTypeConversions.convert(methodName, this)
         else: raise Exception(f"Cannot find Function/Method/Class/Variable for method: {methodName}")
         return Return
     

@@ -67,11 +67,13 @@ class VariableTypeMethods:
     def get_type(i:int):
         match(i):
             case LanTypes.integer:
-                return VariableTypeMethods.Intager
+                return VariableTypeMethods.Integer
             case LanTypes.string:
                 return VariableTypeMethods.String
             case LanTypes.array:
                 return VariableTypeMethods.Array
+            case LanTypes.set:
+                return VariableTypeMethods.Set
             
     @staticmethod
     def is_applitable(typeid:int, method_name:str) -> bool:
@@ -94,7 +96,7 @@ class VariableTypeMethods:
             # User Defined Class
             return var.value.do_method(method, params)
 
-    class Intager:
+    class Integer:
         # Add a number to the variable,
         # returning a reference to the variable
         @staticmethod
@@ -164,6 +166,11 @@ class VariableTypeMethods:
             
     class Array:
         @staticmethod
+        def at(_, var:VariableValue, index:VariableValue) -> VariableValue:
+            EnsureIntegrety((index, LanTypes.integer))
+            return var.value[index.value]
+
+        @staticmethod
         def concat(_, var:VariableValue, seperator:VariableValue=None) -> VariableValue:
             seperator:str = seperator.value if seperator != None else ' '
             return VariableValue(LanTypes.string, seperator.join([item.to_string() for item in var.value]))
@@ -216,3 +223,9 @@ class VariableTypeMethods:
             r = [VariableValue(LanTypes.integer, i) for i in list(range(begining.value, end.value))]
             var.value.extend(r)
             return var
+    
+    class Set:
+        @staticmethod
+        def at(_, var:VariableValue, index:VariableValue) -> VariableValue:
+            EnsureIntegrety((index, LanTypes.string))
+            return var.value[index.value]

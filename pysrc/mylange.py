@@ -44,17 +44,10 @@ else:
                 case "*echoes":
                     mi.enable_echos()
                 case _:
-                    v = None
-                    try:
-                        v = mi.format_parameter(input_str)
-                    except: pass
-                    if (v != None) and (v.value != None):
-                        print(v)
-                    else:
-                        mi.interpret(input_str)
+                    mi.interpret(input_str)
         except KeyboardInterrupt:
             running = False
             print("\n")
         except Exception as e:
-            AnsiColor.println(e, AnsiColor.RED)
+            AnsiColor.println(e.with_traceback(), AnsiColor.RED)
     AnsiColor.println(f"Goodbye! :)", AnsiColor.CYAN)

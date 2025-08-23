@@ -1,0 +1,5 @@
+def set give() as {
+    return (a=>"Anthony");
+};
+print(give());
+print("End FILE");

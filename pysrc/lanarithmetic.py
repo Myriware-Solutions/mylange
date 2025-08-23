@@ -67,10 +67,10 @@ class LanArithmetics:
         if LanArithmetics.parse_expression(expr, operators) == None: return False
         return True
 
-    @staticmethod
-    def parse_expression(expr:str, operators=None, begin_symbols=None):
+    @classmethod
+    def parse_expression(cls, expr:str, operators=None, begin_symbols=None):
         if operators is None:
-            operators = list(LanArithmetics.LambdaOperations.keys())
+            operators = list(cls.LambdaOperations.keys())
         if begin_symbols is None:
             begin_symbols = {"(": ")", "[": "]", "{": "}", '"': '"', "'": "'"}
 
@@ -104,9 +104,9 @@ class LanArithmetics:
         current = []
         last_delim = None
         stack = []
+        found_operator = False
 
         i = 0
-        found_operator = False
         while i < len(expr):
             ch = expr[i]
 
@@ -127,7 +127,7 @@ class LanArithmetics:
                 if matched_op:
                     found_operator = True
                     segment = "".join(current).strip()
-                    if segment or last_delim is not None:
+                    if segment:  # only store if non-empty
                         result.append((last_delim, segment))
                     current = []
                     last_delim = matched_op
@@ -139,12 +139,15 @@ class LanArithmetics:
 
         # final flush
         segment = "".join(current).strip()
-        if segment or last_delim is not None:
+        if segment:
             result.append((last_delim, segment))
 
         # Must have at least 2 operands and one operator
-        if not found_operator or len([r for _, r in result if r]) < 2:
+        if not found_operator or len(result) < 2:
             return None
 
-        return result
+        # Ensure first element has None as operator
+        if result and result[0][0] is not None:
+            result[0] = (None, result[0][1])
 
+        return result
