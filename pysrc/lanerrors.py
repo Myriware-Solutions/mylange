@@ -1,10 +1,9 @@
-
-
 class LanErrors:
 
     class MylangeError(Exception):
         pass
 
+    # Used as Program indicators, not errors
     class StopProgramExecution(MylangeError):
         def __init__(this, msg="Used to safely stop due to an unrecoverable error.", value=None):
             this.value = value
@@ -17,6 +16,7 @@ class LanErrors:
             this.message = msg
             super().__init__(this.message)
 
+    # Legit Errors
     class MemoryMissingError(MylangeError):
         def __init__(this, msg="Could not find variable by name.", value=None):
             this.value = value
@@ -37,6 +37,12 @@ class LanErrors:
     
     class WrongTypeExpectationError(MylangeError):
         def __init__(this, msg="Trying to set something to a different type.", value=None):
+            this.value = value
+            this.message = msg
+            super().__init__(this.message)
+
+    class CannotFindQuerryError(MylangeError):
+        def __init__(this, msg="Cannot figure out what this input is:", value=None):
             this.value = value
             this.message = msg
             super().__init__(this.message)

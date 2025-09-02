@@ -1,5 +1,7 @@
 # IMPORTS
 from enum import IntEnum, Enum
+from lanregexes import ActualRegex
+import re
 
 # Type castisting for variables
 
@@ -30,6 +32,9 @@ class VariableValue:
                 lset = [f"{k}:{v}" for k, v in this.value.items()]
                 return f"({', '.join(lset)})"
         return f"<{this.value}@{this.typeid}>"
+    
+    def isof(this, type:int) -> bool:
+        return this.typeid == type
     
     def to_string(this):
         match (this.typeid):
@@ -108,8 +113,9 @@ class RandomTypeConversions:
             return (LanTypes.array, 0)
         # Set
         if (string.startswith('(')) and (string.endswith(')')):
-            return (LanTypes.set, 0)
-        
+            if re.search(ActualRegex.SetInners.value, string) or re.search(r"\(\s*\)", string):
+                return (LanTypes.set, 0)
+            else: return (LanTypes.nil, 0)
         # No value found, returning Nil
         return (LanTypes.nil, 0)
 
@@ -146,3 +152,17 @@ class LanTypes(IntEnum):
     @staticmethod
     def to_string_name(typeid:int) -> str:
         return TypeNameArray[typeid]
+
+class ParamChecker:
+    @staticmethod
+    def EnsureIntegrety(*params:tuple[VariableValue, int]) -> bool:
+        for param in params:
+            if param[1] != param[0].typeid: raise Exception(f"Type mismatch: Expected {param[1]}, got {param[0].typeid}.")
+        return True
+    
+    @staticmethod
+    def GetTypesOfParameters(*params:VariableValue) -> list[LanTypes]:
+        Return = []
+        for param in params:
+            Return.append(param.typeid)
+        return Return

@@ -1,5 +1,8 @@
 # Myriware Mylange
 
+> "A Language where there is no guessing on types, rather, there is no guessing at all.
+> Well, maybe if it works or not."
+
 Myriware Mylange Scripting Language (MMSL) is a in-house developed
 programming language which aims to teach all Myriware employees
 a common scripting language that can be used on Servers, Sites, etc.
@@ -32,6 +35,15 @@ Type are different types.
 * string : A group of characters : "string"
 * array : A group of (one type of) values : ["Strings", "are", "fun"]
 * set : Object like with key-value paires : (name=>"mylange", coolness=>10)
+
+Variables are inheirently treated as pointers to the original declaration's value.
+Thus, changing the value later on will change the pointer's value.
+This also means that if one variable is set equal to another,
+they both share the same source value.
+Changes to either of these variables will result in the change to the original value,
+and to all references of it.
+To avoid the references to each other, you can use a `@` in front of the variable name.
+This will return a copy of it's value.
 
 ## Loops
 

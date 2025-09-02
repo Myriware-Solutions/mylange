@@ -1,1 +1,5 @@
-The Regex for variable names are inherity un-unicode. Need to fix
+Add c++ type operator redeclartions for custom classes.
+Example: Adds a custom colon-accessor function.
+def string :(string index) as {
+    ...
+}

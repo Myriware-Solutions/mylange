@@ -2,56 +2,33 @@
 import inspect
 
 from memory import MemoryBooker
-from lantypes import VariableValue, LanTypes
+from lantypes import VariableValue, LanTypes, ParamChecker
 from interface import AnsiColor
 from lanclass import LanFunction
+from version import VERSION
 
 NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
 
+class MylangeBuiltinScaffold:
+    @classmethod
+    def is_builtin(this, class_method_path:str):
+        return this.get_method(class_method_path) != None
+    @classmethod
+    def get_method(this, class_method_path:list[str]):
+        first:str = class_method_path[0]
+        if hasattr(this, first):
+            attribute = getattr(this, first)
+            if inspect.isfunction(attribute) or inspect.ismethod(attribute):
+                return attribute
+            elif isinstance(attribute, type):
+                return attribute.get_method(class_method_path[1:])
+        return None
 
-def EnsureIntegrety(*params:tuple[VariableValue, int]) -> bool:
-    for param in params:
-        if param[1] != param[0].typeid: return False
-    return True
 
-def GetTypesOfParameters(*params:VariableValue) -> list[LanTypes]:
-    Return = []
-    for param in params:
-        Return.append(param.typeid)
-    return Return
-
-class MylangeBuiltinFunctions:
-    @staticmethod
-    def is_builtin(method_name:str) -> bool:
-        if hasattr(MylangeBuiltinFunctions, method_name):
-            attribute = getattr(MylangeBuiltinFunctions, method_name)
-            return inspect.isfunction(attribute) or inspect.ismethod(attribute)
-        return False
-    @staticmethod
-    def fire_builtin(booker:MemoryBooker, method_name:str, params:list[VariableValue]) -> any:
-        attribute = getattr(MylangeBuiltinFunctions, method_name)
-        try:
-            return attribute(booker, *params)
-        except:
-            print(*params)
-
-    @staticmethod
-    def dump_cache(booker:MemoryBooker) -> None:
-        for k, v in booker.Registry.items():
-            AnsiColor.println(f"{k} @ {v.typeid} => {v}", AnsiColor.BRIGHT_BLUE)
-
+class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     @staticmethod
     def print(_, *params:VariableValue) -> None:
         for param in list(params): print(param.to_string())
-    
-    @staticmethod
-    def input(_, prompt:VariableValue) -> VariableValue:
-        return VariableValue(LanTypes.string, input(prompt.value))
-    
-    @staticmethod
-    def set_assign(_, setObject:VariableValue, key:VariableValue, value:VariableValue):
-        setObjectDict:dict[str, VariableValue] = setObject.value
-        setObjectDict[key.value] = value
     
     @staticmethod
     def load(_, filePath:VariableValue) -> VariableValue:
@@ -61,6 +38,38 @@ class MylangeBuiltinFunctions:
         with open(filePath.value, "r", encoding='utf-8') as f:
             r = structure.interpret(f.read())
             return r
+        
+    class Set(MylangeBuiltinScaffold):
+        @staticmethod
+        def Assign(_, setObject:VariableValue, key:VariableValue, value:VariableValue):
+            setObjectDict:dict[str, VariableValue] = setObject.value
+            setObjectDict[key.value] = value
+        
+    class System(MylangeBuiltinScaffold):
+        @staticmethod
+        def Version(_) -> None:
+            AnsiColor.println(f"Mylange Version: {VERSION}", AnsiColor.BRIGHT_BLUE)
+        
+        class IO(MylangeBuiltinScaffold):
+            @staticmethod
+            def DumpCache(booker:MemoryBooker) -> None:
+                for k, v in booker.Registry.items():
+                    AnsiColor.println(f"{k} @ {v.typeid} => {v}", AnsiColor.BRIGHT_BLUE)
+            @staticmethod
+            def Input(_, prompt:VariableValue) -> VariableValue:
+                return VariableValue(LanTypes.string, input(prompt.value))
+            @staticmethod
+            def Println(_, *params:VariableValue) -> None:
+                for param in list(params): print(param.to_string())
+
+        class File(MylangeBuiltinScaffold):
+
+            @staticmethod
+            def Read(_, fileName:VariableValue) -> VariableValue:
+                file_name:str = fileName.value
+                with open(file_name, 'r', encoding="utf-8") as f:
+                    return VariableValue(LanTypes.string, f.read())
+
     
 class VariableTypeMethods:
     @staticmethod
@@ -117,16 +126,27 @@ class VariableTypeMethods:
         def charAt(_, var:VariableValue, index:VariableValue) -> VariableValue:
             return VariableValue(LanTypes.string, var.value[index.value])
         
+        # Use: 
+        # Returns or alters a string containing replacement indicators--%s--with the
+        # arguments passed into the function.
+        # String.format(string replacements...)
+        # String.format(boolean desctructive, string replacements...)
         @staticmethod
         def format(_, var:VariableValue, destructive:VariableValue=VariableValue(LanTypes.boolean, False), 
                    *replacements:VariableValue) -> VariableValue:
             Return:str = var.value + ""
+            if not destructive.isof(LanTypes.boolean):
+                Return = Return.replace(f'%s', str(destructive.value), 1)
             for replacement in replacements:
-                Return = Return.replace(f'%s', replacement.value, 1)
-            if destructive.value:
+                Return = Return.replace(f'%s', str(replacement.value), 1)
+            if destructive.isof(LanTypes.boolean) and (destructive.value == True):
                 var.value = Return
                 return NIL_RETURN
             return VariableValue(LanTypes.string, Return)
+        
+        @staticmethod
+        def print(_, var:VariableValue) -> None:
+            print(var)
         
         # Use:
         # Replaces the first instance of the found string.
@@ -160,14 +180,33 @@ class VariableTypeMethods:
                 return NIL_RETURN
             return VariableValue(LanTypes.string, replaced_string)
         
+        # Splits a string into smaller strings, on the characher seperator
+        # String.split(character sep)
+        # sep: (character) The character to sperate the string on.
+        # returns: an array of the strings seperated by sep
         @staticmethod
-        def print(_, var:VariableValue) -> None:
-            print(var)
-            
+        def split(_, var:VariableValue, sep:VariableValue) -> VariableValue:
+            ParamChecker.EnsureIntegrety((sep, LanTypes.character))
+            string:str = var.value
+            val = [VariableValue(LanTypes.string, part) for part in string.split(sep.value)]
+            return VariableValue(LanTypes.array, val)
+    
+        @staticmethod
+        def toCharArray(_, var:VariableValue) -> VariableValue:
+            string:str = var.value
+            Return = []
+            for char in string:
+                Return.append(VariableValue(LanTypes.character, char))
+            return VariableValue(LanTypes.array, Return)
+
+        @staticmethod
+        def toInteger(_, var:VariableValue) -> VariableValue:
+            return VariableValue(LanTypes.integer, int(var.value))
+    
     class Array:
         @staticmethod
         def at(_, var:VariableValue, index:VariableValue) -> VariableValue:
-            EnsureIntegrety((index, LanTypes.integer))
+            ParamChecker.EnsureIntegrety((index, LanTypes.integer))
             return var.value[index.value]
 
         @staticmethod
@@ -223,9 +262,37 @@ class VariableTypeMethods:
             r = [VariableValue(LanTypes.integer, i) for i in list(range(begining.value, end.value))]
             var.value.extend(r)
             return var
+        
+        # Returns an array of ararys, containing the [0] index and the [1] value.
+        # Optionally, it will start on the provided start index.
+        # Array.enumerate(integer? start)
+        @staticmethod
+        def enumerate(_, var:VariableValue, start:VariableValue=VariableValue(LanTypes.integer, 0)) -> VariableValue:
+            ParamChecker.EnsureIntegrety((start, LanTypes.integer))
+            items:list[VariableValue] = var.value
+            Return = []
+            for i, item in enumerate(items, start.value):
+                Return.append(VariableValue(LanTypes.array, [VariableValue(LanTypes.integer, i), item]))
+            return VariableValue(LanTypes.array, Return)
     
     class Set:
         @staticmethod
+        def assign(_, setObject:VariableValue, key:VariableValue, value:VariableValue) -> VariableValue:
+            setObjectDict:dict[str, VariableValue] = setObject.value
+            setObjectDict[key.value] = value
+            return NIL_RETURN
+
+        @staticmethod
         def at(_, var:VariableValue, index:VariableValue) -> VariableValue:
-            EnsureIntegrety((index, LanTypes.string))
+            ParamChecker.EnsureIntegrety((index, LanTypes.string))
             return var.value[index.value]
+        
+        @staticmethod
+        def keys(_, var:VariableValue) -> VariableValue:
+            Return = [VariableValue(LanTypes.string, key) for key in var.value.keys()]
+            return VariableValue(LanTypes.array, Return)
+        
+        @staticmethod
+        def values(_, var:VariableValue) -> VariableValue:
+            Return = var.value.values()
+            return VariableValue(LanTypes.array, Return)

@@ -5,7 +5,7 @@ import copy
 
 from lanregexes import ActualRegex
 from memory import MemoryBooker
-from lantypes import LanTypes, VariableValue, RandomTypeConversions
+from lantypes import LanTypes, VariableValue, RandomTypeConversions, ParamChecker
 #from booleanlogic import LanBooleanStatementLogic
 from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions, VariableTypeMethods
@@ -69,7 +69,7 @@ class MatchBox:
             functions = [funct.strip() for funct in function_bloc.split(",")]
             # Setup Vitual envirement
             mi = MylangeInterpreter(f"Imports\\{m.group(1)}", startBlockCacheNumber=len([item for item in this.CleanCodeCache.keys() if item.startswith("0x")]))
-            mi.make_child_block(this)
+            mi.make_child_block(this, False)
             with open(file_name, 'r') as imports_file:
                 mi.interpret(imports_file.read())
                 for funct_name in functions:
@@ -162,12 +162,25 @@ class MatchBox:
         pattern = ActualRegex.ForStatement.value
         @classmethod
         def handle(cls, this, m):
-            loop_var = f"{m.group(1).strip()} {m.group(2).strip()}"
-            loop_over:list[VariableValue] = this.format_parameter(m.group(3)).value
-            loop_do_str:str = m.group(4)
+            loop_var_raw = str(m.group(1))
+            loop_var=""
+            unpack = False
+            if loop_var_raw.startswith("[") and loop_var_raw.endswith("]"):
+                unpack = True
+                loop_var = loop_var_raw[1:-1]
+            else:
+                loop_var = loop_var_raw
+            loop_over:VariableValue = this.format_parameter(m.group(2))
+            ParamChecker.EnsureIntegrety((loop_over, LanTypes.array))
+            loop_do_str:str = m.group(3)
             loop_funct = LanFunction("ForLoop", "nil", loop_var, loop_do_str)
             try:
-                for item in loop_over: loop_funct.execute(this, [item], True)
+                if unpack:
+                    for item in loop_over.value: 
+                        ParamChecker.EnsureIntegrety((item, LanTypes.array))
+                        loop_funct.execute(this, item.value, True)
+                else:
+                    for item in loop_over.value: loop_funct.execute(this, [item], True)
             except LanErrors.Break: pass
             return NIL_RETURN
     class WhileStatement(LineMatcher):
@@ -266,7 +279,7 @@ class MylangeInterpreter:
                     if result.typeid != LanTypes.nil:
                         Return = result
                         break
-            if not macthed: raise LanErrors.MylangeError("Could not match this to anything?")
+            if not macthed: raise LanErrors.CannotFindQuerryError("Could not match this to anything?")
         return Return
 
     def make_chucks(this, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
@@ -330,6 +343,9 @@ class MylangeInterpreter:
         elif ActualRegex.CachedChar.value.search(part):
             this.echo("Casted to Cached Char", anoyance=2)
             Return = VariableValue(LanTypes.character, this.CleanCodeCache[part][1:-1])
+        elif part.startswith("@") and ActualRegex.VariableStructure.value.search(part[1:]):
+            ogvar = this.Booker.get(part[1:])
+            Return = copy.deepcopy(ogvar)
         # Variable by Name #
         elif ActualRegex.VariableStructure.value.search(part) and (part not in this.SpecialValueWords):
             if this.Booker.find(part):
@@ -357,27 +373,39 @@ class MylangeInterpreter:
     SpecialValueWords:list[str] = ["nil", "true", "false"]
 
     def get_method_aspects(_, string:str):
+        if string.startswith("(") and string.endswith(")"):
+            return (None, string[1:-1])
         m = re.match(r"^([\w\[\]:]+) *(?:\((.*)\))?$", string, re.UNICODE)
         return (m.group(1), m.group(2))
 
     def do_function_or_method(this, fromString:str) -> VariableValue:
         this.echo(F"Evaluating function: {fromString}", "doFu")
+        # Before any workload, check if it is a Mylange Builtin Function
+        builtinMatch = re.match(r"([\w.]+)\((.*)\)", fromString)
+        if (builtinMatch != None) and (MylangeBuiltinFunctions.get_method(builtinMatch.group(1).split(".")) != None):
+            this.echo("Found BUILTIN")
+            f = MylangeBuiltinFunctions.get_method(builtinMatch.group(1).split("."))
+            return f(this.Booker, *this.format_parameter_list(builtinMatch.group(2)))
         # First, break into method chain
         method_chain:list[tuple[str,str]] = [this.get_method_aspects(i) for i in CodeCleaner.split_top_level_commas(fromString.strip(), '.')]
-        #print(method_chain)
         working_var:VariableValue = None
         for i, chain_link in enumerate(method_chain):
             #print(chain_link, working_var, type(working_var))
-            formatedParams = this.format_parameter_list(chain_link[1]) if chain_link[1] != None else []
-            working_var = this.evalute_method(working_var, chain_link[0], formatedParams, i)
+            if chain_link[0] == None:
+                working_var = this.format_parameter(chain_link[1])
+            else:
+                formatedParams = this.format_parameter_list(chain_link[1]) if chain_link[1] != None else []
+                working_var = this.evalute_method(working_var, chain_link[0], formatedParams, i)
         return working_var
         
     def evalute_method(this, base:VariableValue, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|None:
         # Create Virtual Workspace
         Return:VariableValue|LanFunction|None = None
+        this.echo(f"Working chain -{chainIndex}-: {methodName}")
         if (RandomTypeConversions.convert(methodName, this).typeid != LanTypes.nil) and chainIndex == 0:
             # A Random Type Instance, at the base
             Return = RandomTypeConversions.convert(methodName, this)
+        
         elif (MylangeBuiltinFunctions.is_builtin(methodName)) and chainIndex == 0:
             # Mylange base function
             Return = MylangeBuiltinFunctions.fire_builtin(this.Booker, methodName, methodParameters)

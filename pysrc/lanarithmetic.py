@@ -3,26 +3,25 @@ if TYPE_CHECKING:
     from interpreter import MylangeInterpreter
 # IMPORTS
 from lanregexes import ActualRegex
-from lantypes import LanTypes, RandomTypeConversions
+from lantypes import LanTypes, RandomTypeConversions, ParamChecker
 from lantypes import VariableValue
-from builtinfunctions import EnsureIntegrety, GetTypesOfParameters
 
 NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
 # Handles Arithmetics of All kinds
 class LanArithmetics:
     @staticmethod
     def withInts(a:VariableValue, b:VariableValue, callback) -> VariableValue:
-        EnsureIntegrety((a, LanTypes.integer), (b, LanTypes.integer))
+        ParamChecker.EnsureIntegrety((a, LanTypes.integer), (b, LanTypes.integer))
         return VariableValue(LanTypes.integer, callback(a.value, b.value))
     
     @staticmethod
     def concentrateStrings(a:VariableValue, b:VariableValue) -> VariableValue:
-        types = GetTypesOfParameters(a, b)
+        types = ParamChecker.GetTypesOfParameters(a, b)
         match types:
             case [LanTypes.string, LanTypes.string]:
-                return a.value + b.value
+                return VariableValue(LanTypes.string, a.value + b.value)
             case [LanTypes.string, LanTypes.integer]:
-                return a.value * b.value
+                return VariableValue(LanTypes.string, a.value * b.value)
             case _:
                 raise Exception("Cannot perform operations on these!")
             
