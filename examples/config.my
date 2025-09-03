@@ -1,0 +1,8 @@
+return (
+    name => "Anthony", 
+    school => "IU Indy", 
+    knows => (
+        programing => ["WEb", "Python", "etc"],
+        langs => ["Engl", "Span"]),
+    age => 18
+);

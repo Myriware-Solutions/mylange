@@ -1,11 +1,15 @@
 # IMPORTS
-import os
-import sys
+import re, os, sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
 from lantypes import LanTypes
 from version import VERSION
 # Vars
+
+def remove_comments(string:str) -> str:
+        result:str = re.sub(r"^//.*$", '', string, flags=re.MULTILINE)
+        result = re.sub(r"/\[[\w\W]*\]/", '', result, flags=re.MULTILINE)
+        return result
 def clear_terminal():
     # Check if the operating system is Windows ('nt')
     if os.name == 'nt':
@@ -38,7 +42,8 @@ if not linear:
     structure:MylangeInterpreter = MylangeInterpreter("Main")
     if "--echoes" in params: structure.enable_echos()
     with open(file_name, "r", encoding='utf-8') as f:
-        r = structure.interpret(f.read())
+        code = remove_comments(f.read())
+        r = structure.interpret(code)
         AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)
 else:
     AnsiColor.println(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {VERSION}\nUse CTRL+C or \"return 0\" to close the interpreter.", AnsiColor.CYAN)

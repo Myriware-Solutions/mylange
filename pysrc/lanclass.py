@@ -31,18 +31,17 @@ class LanFunction:
         parent:MylangeInterpreter = parent
         container = MylangeInterpreter(f"Funct\\{this.Name}")
         old_mem_keys:list[str] = []
-        mem = None
         if includeMemory:
-            mem = parent.Booker
             old_mem_keys = list(parent.Booker.Registry.keys())
         if (parent != None):
-            container.make_child_block(parent, False)
+            if includeMemory: container.make_child_block(parent, True)
+            else: container.make_child_block(parent, False)
             if parent.EchosEnables: container.enable_echos()
         # Add parameters
         if len(params) != len(this.Parameters):
             raise Exception(f"Length of Given and Expected Parameters do not Match: given {len(params)}, expected {len(this.Parameters)}")
         for i, param in enumerate(this.Parameters.items()):
-            if params[i].typeid != param[1]: raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].typeid}")
+            if (param[1] != LanTypes.dynamic) and (params[i].typeid != param[1]): raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].typeid}")
             container.Booker.set(param[0], params[i])
         r:VariableValue = None
         throw_break = False
@@ -85,7 +84,8 @@ class LanClass:
         lines = LanClass.clean_code_block(codeBlockLines)
         #print(lines)
         property_strs:list = [item for item in lines if ActualRegex.ProprotyStatement.value.search(item)]
-        method_strs:list = [item for item in lines if ActualRegex.FunctionStatement.value.search(item)]
+        method_strs:list[re.Match[str]] = [ ActualRegex.FunctionStatement.value.match(item) for item in lines if ActualRegex.FunctionStatement.value.search(item)]
+        operation_redeclaration_strs:list[re.Match[str]] = [ActualRegex.OperationRedeclaration.value.match(item) for item in lines if ActualRegex.OperationRedeclaration.value.search(item)]
         # Assign Proproties
         for proproty_init in property_strs:
             m = ActualRegex.ProprotyStatement.value.match(proproty_init)
@@ -94,18 +94,18 @@ class LanClass:
             p_name = m.group(2)
             p_init = RandomTypeConversions.convert(m.group(3)) if (m.group(3)) else VariableValue(p_typeid, None)
             this.set_property(p_name, p_typeid, p_init)
-        for method_init in method_strs:
-            m = ActualRegex.FunctionStatement.value.match(proproty_init)
-            init_param_str = ",".join(["set this"] + m.group(3).split(','))
-            funct = LanFunction(m.group(2), m.group(1), init_param_str, parent.CleanCodeCache[m.group(4)])
-            this.Methods[m.group(2)] =  funct
+        # Methods
+        for method_init in (method_strs + operation_redeclaration_strs):
+            init_param_str = ",".join(["set this"] + method_init.group(3).split(','))
+            funct = LanFunction(m.group(2), method_init.group(1), init_param_str, parent.CleanCodeCache[method_init.group(4)])
+            this.Methods[method_init.group(2)] =  funct
     
     def set_property(this, name:str, typeid:LanTypes, value:VariableValue):
         this.Properties[name] = value
 
     def create(this, args):
         this.do_method("constructor", args)
-        return VariableValue(-1, copy.deepcopy(this))
+        return VariableValue(LanTypes.casting, copy.deepcopy(this))
     
     def props_to_set(this) -> VariableValue:
         return VariableValue(LanTypes.set, this.Properties)
@@ -114,5 +114,8 @@ class LanClass:
         # Copy the Function
         ps = [this.props_to_set()] + args
         return this.Methods[method_name].execute(this.Parent, ps, False, this)
+    
+    def has_method(this, methodName:str) -> bool:
+        return methodName in this.Methods.keys()
 
 

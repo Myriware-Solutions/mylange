@@ -1,0 +1,11 @@
+set config => System.File.Execute("../examples/config.my");
+
+print(config);
+
+for [string key, dynamic value] in config.pairs() do {
+    print(key .. " " .. TypeOf(value, true));
+};
+
+print("Endof File");
+
+return nil;

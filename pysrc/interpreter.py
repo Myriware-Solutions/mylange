@@ -174,14 +174,13 @@ class MatchBox:
             ParamChecker.EnsureIntegrety((loop_over, LanTypes.array))
             loop_do_str:str = m.group(3)
             loop_funct = LanFunction("ForLoop", "nil", loop_var, loop_do_str)
-            try:
-                if unpack:
-                    for item in loop_over.value: 
-                        ParamChecker.EnsureIntegrety((item, LanTypes.array))
-                        loop_funct.execute(this, item.value, True)
-                else:
-                    for item in loop_over.value: loop_funct.execute(this, [item], True)
-            except LanErrors.Break: pass
+            if unpack:
+                for item in loop_over.value: 
+                    ParamChecker.EnsureIntegrety((item, LanTypes.array))
+                    r = loop_funct.execute(this, item.value, True)
+            else:
+                for item in loop_over.value: loop_funct.execute(this, [item], True)
+            this.echo("For loop closed")
             return NIL_RETURN
     class WhileStatement(LineMatcher):
         pattern = ActualRegex.WhileStatement.value
@@ -190,10 +189,11 @@ class MatchBox:
             while_condition = m.group(1).strip()
             while_do_str = m.group(2).strip()
             while_loop_funct = LanFunction("WhileLoop", "nil", "", while_do_str)
-            try:
-                while this.format_parameter(while_condition).value:
+            while this.format_parameter(while_condition).value:
+                try:
                     while_loop_funct.execute(this, [], True)
-            except LanErrors.Break: pass
+                except LanErrors.Break: break
+                except LanErrors.Continue: continue
             return NIL_RETURN
     class MethodCall(LineMatcher):
         pattern = ActualRegex.FunctionOrMethodCall.value
@@ -212,7 +212,7 @@ class MatchBox:
         @classmethod
         def handle(cls, this, m):
             this.echo("Break Called")
-            raise LanErrors.Break()
+            return VariableValue(LanTypes.BREAK, None)
     
     # =============== #
     # Format Matchers #
@@ -260,26 +260,29 @@ class MylangeInterpreter:
     def interpret(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue:
         try:
             return this.interpret_logic(string, overrideClean, objectMethodMaster)
-        except LanErrors.Break: raise LanErrors.Break()
+        except LanErrors.Break: 
+            raise LanErrors.Break()
         except LanErrors.MylangeError as exception:
             AnsiColor.println(f"Fatal Error: {exception.message}", AnsiColor.BRIGHT_RED)
             return None
 
     def interpret_logic(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue:
         lines:list[str] = this.make_chucks(string, overrideClean, this.StartBlockCacheNumber)
-        Return:VariableValue = VariableValue(LanTypes.nil, None); macthed:bool = False
+        Return:VariableValue = VariableValue(LanTypes.nil, None); matched:bool = False
         for line in lines:
             this.echo(line, "MyInLoop")
             # Match the type of line
             for matcher in all_matchers(LineMatcher):
                 result = matcher.match(this, line)
                 if result is not None:
-                    macthed = True
+                    matched = True
                     this.LineNumber += 1
-                    if result.typeid != LanTypes.nil:
+                    if (result.typeid != LanTypes.nil) or (result.typeid == LanTypes.BREAK):
                         Return = result
                         break
-            if not macthed: raise LanErrors.CannotFindQuerryError("Could not match this to anything?")
+                    elif matched:
+                        break
+            if not matched: raise LanErrors.CannotFindQuerryError(f"Could not match this to anything: {line}")
         return Return
 
     def make_chucks(this, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
@@ -401,11 +404,14 @@ class MylangeInterpreter:
     def evalute_method(this, base:VariableValue, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|None:
         # Create Virtual Workspace
         Return:VariableValue|LanFunction|None = None
-        this.echo(f"Working chain -{chainIndex}-: {methodName}")
-        if (RandomTypeConversions.convert(methodName, this).typeid != LanTypes.nil) and chainIndex == 0:
+        this.echo(f"Working chain -{chainIndex}-: {methodName}; {methodParameters}")
+        if (base != None) and (base.typeid == LanTypes.casting):
+            this.echo("Accessing Casting method")
+            b:LanClass = base.value
+            Return = b.do_method(methodName, methodParameters)
+        elif (RandomTypeConversions.convert(methodName, this).typeid != LanTypes.nil) and chainIndex == 0:
             # A Random Type Instance, at the base
             Return = RandomTypeConversions.convert(methodName, this)
-        
         elif (MylangeBuiltinFunctions.is_builtin(methodName)) and chainIndex == 0:
             # Mylange base function
             Return = MylangeBuiltinFunctions.fire_builtin(this.Booker, methodName, methodParameters)
@@ -425,6 +431,7 @@ class MylangeInterpreter:
             # Variable, most likely as a chain base
             Return = this.Booker.get(methodName)
         else: raise Exception(f"Cannot find Function/Method/Class/Variable for method: {methodName}")
+        this.echo(f"Returning: {Return}")
         return Return
     
     def get_cached_reference(this, hexCode:str) -> str|None:
@@ -436,18 +443,18 @@ class MylangeInterpreter:
 class CodeCleaner:
     "Converts a string of Mylange code into a execution-ready code blob."
     
-    @staticmethod
-    def cleanup_chunk(string:str, preventConfine:bool=False, startBlockNumber:int=0):
-        clean_code:str = CodeCleaner.remove_comments(string)
+    @classmethod
+    def cleanup_chunk(cls, string:str, preventConfine:bool=False, startBlockNumber:int=0):
+        clean_code:str = cls.remove_comments(string)
         cache:dict[str,str] = {}
         if not preventConfine:
             # first, take care of string/char values
-            clean_code, qoute_cache = CodeCleaner.confine_qoutes(clean_code)
+            clean_code, qoute_cache = cls.confine_qoutes(clean_code)
             cache.update(qoute_cache)
             # then, confine all of the lambda instances
 
             # then, remove all blocks
-            clean_code, block_cache = CodeCleaner.confine_brackets(clean_code, startBlockNumber=startBlockNumber)
+            clean_code, block_cache = cls.confine_brackets(clean_code, startBlockNumber=startBlockNumber)
             cache.update(block_cache)
         clean_code = clean_code.replace('\n', '')
         return clean_code, cache

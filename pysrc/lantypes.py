@@ -46,6 +46,16 @@ class VariableValue:
                 return this.value
             case _:
                 return this.__str__()
+            
+    def colon_access(this, index:str) -> 'VariableValue':
+        from builtinfunctions import ParamChecker
+        ParamChecker.EnsureIntegrety((this, LanTypes.set))
+        return this.value[index]
+
+    def bracket_access(this, index:int) -> 'VariableValue':
+        from builtinfunctions import ParamChecker
+        ParamChecker.EnsureIntegrety((this, LanTypes.array))
+        return this.value[index]
 
 class RandomTypeConversions:
     @staticmethod
@@ -83,7 +93,7 @@ class RandomTypeConversions:
                 for part in parts:
                     key_value = part.split('=>', 1)
                     var = mi.format_parameter(key_value[1])
-                    ReturnS[key_value[0]] = var
+                    ReturnS[key_value[0].strip()] = var
                 return VariableValue(LanTypes.set, ReturnS)
 
     @staticmethod
@@ -125,9 +135,13 @@ class NotValidType(Exception):
         self.message = message
         super().__init__(self.message)
 
-TypeNameArray:list = ["nil", "boolean", "integer", "character", "string", "array", "set"]
+TypeNameArray:list = ["nil", "boolean", "integer", "character", "string", "array", "set", "casting", "dynamic"]
 
 class LanTypes(IntEnum):
+    # Handlers #
+    BREAK     = -1
+    CONTINUE  = -2
+    # Types #
     nil       = 0
     boolean   = 1
     integer   = 2
@@ -135,6 +149,8 @@ class LanTypes(IntEnum):
     string    = 4
     array     = 5
     set       = 6
+    casting   = 7
+    dynamic   = 8
 
     @staticmethod
     def is_valid_type(typeid:int):

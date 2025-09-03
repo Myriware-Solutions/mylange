@@ -2,7 +2,7 @@
 import inspect
 
 from memory import MemoryBooker
-from lantypes import VariableValue, LanTypes, ParamChecker
+from lantypes import VariableValue, LanTypes, ParamChecker, TypeNameArray
 from interface import AnsiColor
 from lanclass import LanFunction
 from version import VERSION
@@ -39,6 +39,10 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
             r = structure.interpret(f.read())
             return r
         
+    def TypeOf(_, var:VariableValue, asString:VariableValue=VariableValue(LanTypes.boolean, False)) -> VariableValue:
+        if asString.value: return VariableValue(LanTypes.string, TypeNameArray[var.typeid])
+        else: return VariableValue(LanTypes.integer, var.typeid)
+        
     class Set(MylangeBuiltinScaffold):
         @staticmethod
         def Assign(_, setObject:VariableValue, key:VariableValue, value:VariableValue):
@@ -53,8 +57,10 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
         class IO(MylangeBuiltinScaffold):
             @staticmethod
             def DumpCache(booker:MemoryBooker) -> None:
+                AnsiColor.println("== :System.IO.DumpCache ==", AnsiColor.BRIGHT_BLUE)
                 for k, v in booker.Registry.items():
                     AnsiColor.println(f"{k} @ {v.typeid} => {v}", AnsiColor.BRIGHT_BLUE)
+                AnsiColor.println("==         End          ==", AnsiColor.BRIGHT_BLUE)
             @staticmethod
             def Input(_, prompt:VariableValue) -> VariableValue:
                 return VariableValue(LanTypes.string, input(prompt.value))
@@ -69,6 +75,13 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
                 file_name:str = fileName.value
                 with open(file_name, 'r', encoding="utf-8") as f:
                     return VariableValue(LanTypes.string, f.read())
+            
+            @classmethod
+            def Execute(this, _, fileName:VariableValue) -> VariableValue:
+                content = this.Read(None, fileName)
+                from interpreter import MylangeInterpreter
+                virtual_engine = MylangeInterpreter("SysExe")
+                return virtual_engine.interpret(content.value)
 
     
 class VariableTypeMethods:
@@ -296,3 +309,11 @@ class VariableTypeMethods:
         def values(_, var:VariableValue) -> VariableValue:
             Return = var.value.values()
             return VariableValue(LanTypes.array, Return)
+        
+        @staticmethod
+        def pairs(_, var:VariableValue):
+            Return = []
+            for k, v in var.value.items():
+                Return.append(VariableValue(LanTypes.array, [VariableValue(LanTypes.string, k), v]))
+            return VariableValue(LanTypes.array, Return)
+

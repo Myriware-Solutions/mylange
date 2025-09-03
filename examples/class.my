@@ -1,4 +1,5 @@
 class Person has {
+
     prop string First;
     prop string Last;
     prop integer Age => 18;
@@ -13,11 +14,17 @@ class Person has {
         string toprint => "Hello %s %s!";
         print(toprint.format(this:First, this:Last));
     };
+
+    def string operation_colon(string index) as {
+        return "I am a person";
+    };
 };
 
 Person Anthony => new Person("Anthony", "Smith");
 Anthony.Greet();
 
-dump_cache();
+print(Anthony:First);
+
+System.IO.DumpCache();
 
 return Anthony;

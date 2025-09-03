@@ -33,7 +33,7 @@ class ActualRegex(Enum):
     ProprotyStatement = re.compile(r"^prop +([a-zA-Z\[\]]+) +(\w+)(?: *=> *(.*) *)?", flags=re.UNICODE)
     NewClassObjectStatement = re.compile(r"new +([a-zA-Z]\w*) *\((.*)\)", flags=re.UNICODE)
     PropertySetStatement = re.compile(r"this:(.+) +=> +(.*)", flags=re.UNICODE)
-    OperationRedeclaration = re.compile(r"def +(\w+) +(:|(?:\[\])) *\((.*)\) *as +(.*)", flags=re.UNICODE)
+    OperationRedeclaration = re.compile(r"def +(\w+) +operation(:|(?:\[\])) *\((.*)\) *as +(.*)", flags=re.UNICODE)
     # If/Else Statements
     IfStatementGeneral = re.compile(r"if +\(.*\) +then +.*", flags=re.UNICODE)
     IfElseStatement = re.compile(r"if *\((.*)\) *then +(.*?) +else +(.*)", flags=re.UNICODE)
@@ -43,4 +43,4 @@ class ActualRegex(Enum):
     # Arithmetics
     GeneralArithmetics = re.compile(r"^(.*?) *([.+\-*\/]+) *(.*) *$", flags=re.UNICODE)
     # Set 
-    SetInners = re.compile(r"\(([\w+]+) *=> *((.+))+\)", flags=re.UNICODE)
+    SetInners = re.compile(r"\((?:\s*\w+\s*=>\s*.+,?)+\)", flags=re.UNICODE)

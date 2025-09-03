@@ -3,7 +3,7 @@ import re
 
 from lanregexes import ActualRegex
 from lanerrors import LanErrors
-from lantypes import VariableValue
+from lantypes import VariableValue, LanTypes
 from enum import IntEnum, StrEnum
 
 class VarQuerryParts(StrEnum):
@@ -28,13 +28,20 @@ class MemoryBooker:
     def get(this, varQuerry:str) -> VariableValue:
         if not this.find(varQuerry): raise LanErrors.MemoryMissingError(f"Could not find variable by name: {varQuerry}")
         m = ActualRegex.VariableStructure.value.match(varQuerry)
-        varin = this.Registry[m.group(1)]
+        varin:VariableValue = this.Registry[m.group(1)]
         if m.group(2):
             extention_m = re.findall(VarQuerryParts.AllMacthes, m.group(2), flags=re.UNICODE)
             for ext in extention_m:
                 ext:str = ext
                 if ext.startswith(':'):
-                    varin = varin.value[ext[1:]]
+                    rest:str = ext[1:]
+                    if (varin.typeid == LanTypes.casting):
+                        if (varin.value.has_method(':')):
+                            varin = varin.value.do_method(':', [VariableValue(LanTypes.string, rest)])
+                        else:
+                            varin = varin.value.Properties[rest]
+                    else:
+                        varin = varin.value[rest]
                 elif ext.startswith('[') and ext.endswith(']'):
                     varin = varin.value[int(ext[1:-1])]
                 else: raise Exception("This is not a vaild indexing approch.")

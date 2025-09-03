@@ -37,10 +37,10 @@ class LanArithmetics:
         "..": lambda a, b: LanArithmetics.concentrateStrings(a, b),
         "==": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l == r)),
         "!=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l != r)),
-        "<" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l < r)),
         "<=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l <= r)),
-        ">" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l > r)),
-        ">=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l >= r))
+        ">=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l >= r)),
+        "<" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l < r)),
+        ">" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l > r))
     }
 
     @staticmethod
