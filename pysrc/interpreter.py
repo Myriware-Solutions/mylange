@@ -103,39 +103,27 @@ class MatchBox:
             var.value = this.format_parameter(newvalue).value
             return NIL_RETURN
     class IfStatement(LineMatcher):
-        pattern = ActualRegex.IfStatementGeneral.value
+        pattern = ActualRegex.IfStatementBlock.value
         @classmethod
         def handle(cls, this, m):
-            #TODO: Refine this
-            # Match to correct if/else block
-            condition = None
-            when_true = None 
-            when_false = None
-            if ActualRegex.IfElseStatement.value.search(m.group(0)):
-                m = ActualRegex.IfElseStatement.value.match(m.group(0))
-                condition = m.group(1)
-                when_true = m.group(2)
-                when_false = m.group(3)
-            elif ActualRegex.IfStatement.value.search(m.group(0)):
-                m = ActualRegex.IfStatement.value.match(m.group(0))
-                condition = m.group(1)
-                when_true = m.group(2)
-            else:
-                raise Exception("IF/Else statement not configured right!")
-            this.echo(f"Parts: {when_true}, {when_false}, {condition}", indent=1)
-            # Evaluate the statement
-            result = (this.format_parameter(condition)).value
-            if type(result) != bool:
-                raise LanErrors.ConditionalNotBoolError(f"Cannot use this for boolean logic ({type(result)} {result}): {condition}")
-            # Do functions
-            if (result):
-                block = MylangeInterpreter(f"{this.BlockTree}/IfTrue", this.LineNumber)
-                block.make_child_block(this, True)
-                block.interpret(when_true, True)
-            elif (not result) and (when_false!=None):
-                block = MylangeInterpreter(f"{this.BlockTree}/IfFalse", this.LineNumber)
-                block.make_child_block(this, True)
-                block.interpret(when_false, True)
+            this.echo(f"[DEBRA] If Statement: {m.group(0)}")
+            ms = re.findall(ActualRegex.IfStatementParts.value, m.group(0))
+            # 1 = if/else if/else
+            # 2 = boolean evaluation (opitonal)
+            # 3 = logic
+            for m in ms:
+                if_type:str = re.sub(r"\s*", "", m[0]); bool_test:str = m[1]; logic:str = m[2]
+                proceed:bool = False
+                if (if_type == "else"):
+                    proceed = True
+                else:
+                    bool_res = this.format_parameter(bool_test)
+                    ParamChecker.EnsureIntegrety((bool_res, LanTypes.boolean))
+                    proceed = bool_res.value
+                if proceed:
+                    funct = LanFunction("If", "nil", "", logic)
+                    funct.execute(this, [], True)
+                    break
             return NIL_RETURN
     class FunctionStatement(LineMatcher):
         pattern = ActualRegex.FunctionStatement.value

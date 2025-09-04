@@ -173,7 +173,7 @@ class ParamChecker:
     @staticmethod
     def EnsureIntegrety(*params:tuple[VariableValue, int]) -> bool:
         for param in params:
-            if param[1] != param[0].typeid: raise Exception(f"Type mismatch: Expected {param[1]}, got {param[0].typeid}.")
+            if param[1] != param[0].typeid: raise Exception(f"[Type Validation] Type mismatch: Expected {TypeNameArray[param[1]]}, got {TypeNameArray[param[0].typeid]}.")
         return True
     
     @staticmethod

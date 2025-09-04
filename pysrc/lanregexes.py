@@ -35,9 +35,8 @@ class ActualRegex(Enum):
     PropertySetStatement = re.compile(r"this:(.+) +=> +(.*)", flags=re.UNICODE)
     OperationRedeclaration = re.compile(r"def +(\w+) +operation(:|(?:\[\])) *\((.*)\) *as +(.*)", flags=re.UNICODE)
     # If/Else Statements
-    IfStatementGeneral = re.compile(r"if +\(.*\) +then +.*", flags=re.UNICODE)
-    IfElseStatement = re.compile(r"if *\((.*)\) *then +(.*?) +else +(.*)", flags=re.UNICODE)
-    IfStatement = re.compile(r"if *\((.*)\) *then +(.*)", flags=re.UNICODE)
+    IfStatementBlock = re.compile(r"(?:(?:if\s*.*)|(?:else\s+if\s*.*)|(?:else\s*.*))+", flags=re.UNICODE)
+    IfStatementParts = re.compile(r"(if|else\s*if|else)\s*(?:\((.*?)\))?\s*then\s*(.*?)(?=if|else\s*if|else|$)", flags=re.UNICODE)
     # Boolean
     GeneralEqualityStatement = re.compile(r"^(.*?) *([=<>!]+) *(.*) *$", flags=re.UNICODE)
     # Arithmetics

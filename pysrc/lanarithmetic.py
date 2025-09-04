@@ -43,6 +43,11 @@ class LanArithmetics:
         ">" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l > r))
     }
 
+    JoinedOperations = {
+        "and": None,
+        "or": None,
+    }
+
     @staticmethod
     def evalute_string(parent:'MylangeInterpreter', string:str) -> VariableValue:
         evaluation_chain = LanArithmetics.parse_expression(string)
