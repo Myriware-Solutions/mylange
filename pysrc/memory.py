@@ -39,7 +39,10 @@ class MemoryBooker:
                         if (varin.value.has_method(':')):
                             varin = varin.value.do_method(':', [VariableValue(LanTypes.string, rest)])
                         else:
-                            varin = varin.value.Properties[rest]
+                            try:
+                                varin = varin.value.Properties[rest]
+                            except KeyError:
+                                raise LanErrors.NotIndexableError("Could not find this Property on object. Is it or colon-method private?")
                     else:
                         varin = varin.value[rest]
                 elif ext.startswith('[') and ext.endswith(']'):

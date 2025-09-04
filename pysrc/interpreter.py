@@ -249,16 +249,19 @@ class MylangeInterpreter:
         this.CleanCodeCache = copy.deepcopy(parent.CleanCodeCache)
         this.echo("Converting to Child Process")
 
-    def interpret(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue:
+    ObjectMethodMaster:LanClass
+
+    def interpret(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue|None:
+        this.ObjectMethodMaster = objectMethodMaster
         try:
-            return this.interpret_logic(string, overrideClean, objectMethodMaster)
+            return this.interpret_logic(string, overrideClean)
         except LanErrors.Break: 
             raise LanErrors.Break()
         except LanErrors.MylangeError as exception:
             AnsiColor.println(f"Fatal Error: {exception.message}", AnsiColor.BRIGHT_RED)
             return None
 
-    def interpret_logic(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue:
+    def interpret_logic(this, string:str, overrideClean:bool=False) -> VariableValue:
         lines:list[str] = this.make_chucks(string, overrideClean, this.StartBlockCacheNumber)
         Return:VariableValue = VariableValue(LanTypes.nil, None); matched:bool = False
         for line in lines:
@@ -308,14 +311,15 @@ class MylangeInterpreter:
         if RandomTypeConversions.get_type(part)[0] != 0:
             this.echo("Casted to RandomType", anoyance=2)
             Return = RandomTypeConversions.convert(part, this)
-        # Arithmetics #
-        elif LanArithmetics.is_arithmetic(part):
-            Return = LanArithmetics.evalute_string(this, part)
-            this.echo(f"Casted to Arithmetic; returning {Return}", anoyance=2)
         # Function/Method Call #
         elif ActualRegex.FunctionOrMethodCall.value.search(part):
             this.echo("Casted to Function/Method", anoyance=2)
             Return = this.do_function_or_method(part)
+        # Arithmetics #
+        elif LanArithmetics.is_arithmetic(part):
+            this.echo("Thinking of Arithmetics")
+            Return = LanArithmetics.evalute_string(this, part)
+            this.echo(f"Casted to Arithmetic; returning {Return}", anoyance=2)
         # Lambda #
         elif ActualRegex.LambdaStatement.value.search(part):
             m = ActualRegex.LambdaStatement.value.match(part)
@@ -326,6 +330,7 @@ class MylangeInterpreter:
             Return = LanFunction("lambda", returnType, paramString, blockCache)
         # New Object from Class #
         elif ActualRegex.NewClassObjectStatement.value.search(part):
+            this.echo("Thinking of New Class Object")
             m = ActualRegex.NewClassObjectStatement.value.match(part)
             cls_name = m.group(1)
             cls_args = this.format_parameter_list(m.group(2))
@@ -339,6 +344,7 @@ class MylangeInterpreter:
             this.echo("Casted to Cached Char", anoyance=2)
             Return = VariableValue(LanTypes.character, this.CleanCodeCache[part][1:-1])
         elif part.startswith("@") and ActualRegex.VariableStructure.value.search(part[1:]):
+            this.echo("Casted to Copytrace of variable.")
             ogvar = this.Booker.get(part[1:])
             Return = copy.deepcopy(ogvar)
         # Variable by Name #
@@ -365,7 +371,7 @@ class MylangeInterpreter:
 
     # Certain variable-name capatible words that should not
     # be ever treated like a variable.
-    SpecialValueWords:list[str] = ["nil", "true", "false"]
+    SpecialValueWords:list[str] = ["nil", "true", "false", "this"]
 
     def get_method_aspects(_, string:str):
         if string.startswith("(") and string.endswith(")"):

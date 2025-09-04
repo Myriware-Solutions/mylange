@@ -1,6 +1,7 @@
 # IMPORTS
 import re
 import copy
+from enum import IntEnum
 
 from lantypes import LanTypes, VariableValue, RandomTypeConversions
 from lanerrors import LanErrors
@@ -52,13 +53,19 @@ class LanFunction:
             raise LanErrors.WrongTypeExpectationError("Function is trying to return wrong value type.")
         return Return
 
+class AttributeAccessabilities(IntEnum):
+    private = 0
+    public = 1
+
 # =========== #
 #   Classes   #
 # =========== #
 class LanClass:
     Name:str
     Methods:dict[str, LanFunction]
+    PrivateMethods:dict[str, LanFunction]
     Properties:dict[str, VariableValue]
+    PrivateProperties:dict[str, VariableValue]
     Parent:any
     @staticmethod
     def clean_code_block(codeBody:str) -> list[str]:
@@ -71,8 +78,8 @@ class LanClass:
     def __init__(this, name:str, codeBody:str, parent:any):
         # Setup defults
         this.Name = name
-        this.Methods = {}
-        this.Properties = {}
+        this.Methods = {}; this.Properties = {}
+        this.PrivateMethods = {}; this.PrivateProperties = {}
         # Analyze code
         from interpreter import MylangeInterpreter
         parent:MylangeInterpreter = parent
@@ -80,39 +87,55 @@ class LanClass:
         codeBlockLines:str = parent.CleanCodeCache[codeBody.strip()]
         lines = LanClass.clean_code_block(codeBlockLines)
         #print(lines)
-        property_strs:list = [item for item in lines if ActualRegex.ProprotyStatement.value.search(item)]
-        method_strs:list[re.Match[str]] = [ ActualRegex.FunctionStatement.value.match(item) for item in lines if ActualRegex.FunctionStatement.value.search(item)]
-        operation_redeclaration_strs:list[re.Match[str]] = [ActualRegex.OperationRedeclaration.value.match(item) for item in lines if ActualRegex.OperationRedeclaration.value.search(item)]
+        property_strs:list[re.Match[str]] = [ActualRegex.PropertyStatement.value.match(item) for item in lines if ActualRegex.PropertyStatement.value.search(item)]
+        method_strs:list[re.Match[str]] = [ ActualRegex.ClassMethodStatement.value.match(item) for item in lines if ActualRegex.ClassMethodStatement.value.search(item)]
         # Assign Proproties
-        for proproty_init in property_strs:
-            m = ActualRegex.ProprotyStatement.value.match(proproty_init)
-            p_type = m.group(1)
-            p_typeid = LanTypes.from_string(p_type)
-            p_name = m.group(2)
-            p_init = RandomTypeConversions.convert(m.group(3)) if (m.group(3)) else VariableValue(p_typeid, None)
-            this.set_property(p_name, p_typeid, p_init)
+        for property_str in property_strs:
+            parent.echo(f"[Classy] Working on line: {property_str.group(0)}")
+            accessability = AttributeAccessabilities[property_str.group(1)]
+            p_typeid = LanTypes.from_string(property_str.group(2))
+            p_name = property_str.group(3)
+            p_init = RandomTypeConversions.convert(property_str.group(4)) if (property_str.group(4)) else VariableValue(p_typeid, None)
+            this.set_property(accessability, p_name, p_init)
         # Methods
-        for method_init in (method_strs + operation_redeclaration_strs):
-            init_param_str = ",".join(["set this"] + method_init.group(3).split(','))
-            funct = LanFunction(m.group(2), method_init.group(1), init_param_str, parent.CleanCodeCache[method_init.group(4)])
-            this.Methods[method_init.group(2)] =  funct
+        for method_str in method_strs:
+            accessability = AttributeAccessabilities[method_str.group(1)]
+            init_param_str = ",".join(["set this"] + method_str.group(4).split(','))
+            funct = LanFunction(method_str.group(3), method_str.group(2), init_param_str, parent.CleanCodeCache[method_str.group(5)])
+            this.set_method(accessability, method_str.group(3), funct)
     
-    def set_property(this, name:str, typeid:LanTypes, value:VariableValue):
-        this.Properties[name] = value
+    def set_property(this, accessability:AttributeAccessabilities, name:str, value:VariableValue):
+        Group = None
+        match accessability:
+            case AttributeAccessabilities.private: Group = this.PrivateProperties
+            case AttributeAccessabilities.public: Group = this.Properties
+        if name in Group.keys(): raise LanErrors.DuplicatePropertyError(name)
+        Group[name] = value
+
+    def set_method(this, accessability:AttributeAccessabilities, name:str, funct:LanFunction):
+        Group = None
+        match accessability:
+            case AttributeAccessabilities.private: Group = this.PrivateMethods
+            case AttributeAccessabilities.public: Group = this.Methods
+        if name in Group.keys(): raise LanErrors.DuplicateMethodError()
+        Group[name] = funct
 
     def create(this, args):
-        this.do_method("constructor", args)
-        return VariableValue(LanTypes.casting, copy.deepcopy(this))
+        object_copy = copy.deepcopy(this)
+        object_copy.do_method("constructor", args)
+        return VariableValue(LanTypes.casting, object_copy)
     
     def props_to_set(this) -> VariableValue:
-        return VariableValue(LanTypes.set, this.Properties)
+        full_properties = this.Properties | this.PrivateProperties
+        return VariableValue(LanTypes.set, full_properties)
     
-    def do_method(this, method_name:str, args:list[VariableValue]) -> VariableValue:
-        # Copy the Function
-        ps = [this.props_to_set()] + args
-        return this.Methods[method_name].execute(this.Parent, ps, False, this)
+    def do_method(this, methodName:str, args:list[VariableValue]) -> VariableValue:
+        full_parameters = [this.props_to_set()] + args
+        return this.Methods[methodName].execute(this.Parent, full_parameters, False, this)
+    
+    def do_private_method(this, methodName, args) -> VariableValue:
+        full_parameters = [this.props_to_set()] + args
+        return this.PrivateMethods[methodName].execute(this.Parent, full_parameters, False, this)
     
     def has_method(this, methodName:str) -> bool:
         return methodName in this.Methods.keys()
-
-

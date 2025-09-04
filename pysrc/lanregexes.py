@@ -25,15 +25,14 @@ class ActualRegex(Enum):
     # Imports
     ImportStatement = re.compile(r"from +(.+?) +import +([\w, ]+)", flags=re.UNICODE)
     # Loops
-    ForStatement = re.compile(r"for +((?:\w+ +[a-zA-Z]+)|(?:\[[a-zA-Z ,]+\])) +in +(.+) +do (.+)", flags=re.UNICODE)
+    ForStatement = re.compile(r"^for +((?:\w+ +[a-zA-Z]+)|(?:\[[a-zA-Z ,]+\])) +in +(.+) +do (.+)", flags=re.UNICODE)
     WhileStatement = re.compile(r"^while *\((.*)\) *do +(.*)", flags=re.UNICODE)
     BreakStatement = re.compile(r"^break", flags=re.UNICODE)
     # Classes
     ClassStatement = re.compile(r"^class +([a-zA-Z]\w*) +has +(.*)", flags=re.UNICODE)
-    ProprotyStatement = re.compile(r"^prop +([a-zA-Z\[\]]+) +(\w+)(?: *=> *(.*) *)?", flags=re.UNICODE)
+    PropertyStatement = re.compile(r"^(public|private)\s*(?!def)([\w]+)\s+(\w+)(?:\s*=>\s*(.*)\s*)?", flags=re.UNICODE)
     NewClassObjectStatement = re.compile(r"new +([a-zA-Z]\w*) *\((.*)\)", flags=re.UNICODE)
-    PropertySetStatement = re.compile(r"this:(.+) +=> +(.*)", flags=re.UNICODE)
-    OperationRedeclaration = re.compile(r"def +(\w+) +operation(:|(?:\[\])) *\((.*)\) *as +(.*)", flags=re.UNICODE)
+    ClassMethodStatement = re.compile(r"(\w+)\s*def\s*(\w+)\s*(\w+|:|\[\s*\])\s*\(([\w\s,.]*)\)\s*as\s*(.*)", flags=re.UNICODE)
     # If/Else Statements
     IfStatementBlock = re.compile(r"(?:(?:if\s*.*)|(?:else\s+if\s*.*)|(?:else\s*.*))+", flags=re.UNICODE)
     IfStatementParts = re.compile(r"(if|else\s*if|else)\s*(?:\((.*?)\))?\s*then\s*(.*?)(?=if|else\s*if|else|$)", flags=re.UNICODE)

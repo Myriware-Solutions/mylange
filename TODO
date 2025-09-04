@@ -1,5 +1,5 @@
-Add c++ type operator redeclartions for custom classes.
-Example: Adds a custom colon-accessor function.
-def string :(string index) as {
+Add Java operation LR specification
+Example:
+def operation<(Class l, Class R) as {
     ...
-}
+};

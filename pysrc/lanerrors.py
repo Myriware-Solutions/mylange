@@ -58,3 +58,15 @@ class LanErrors:
             this.value = value
             this.message = msg
             super().__init__(this.message)
+    
+    class DuplicateMethodError(MylangeError):
+        def __init__(this, msg="DuplicateMethodError-undefined_error_info", value=None):
+            this.value = value
+            this.message = f"Trying to create another method with the same name: {msg}"
+            super().__init__(this.message)
+    
+    class DuplicatePropertyError(MylangeError):
+        def __init__(this, msg="DuplicatePropertyError-undefined_error_info", value=None):
+            this.value = value
+            this.message = f"Trying to create another property with the same name: {msg}"
+            super().__init__(this.message)

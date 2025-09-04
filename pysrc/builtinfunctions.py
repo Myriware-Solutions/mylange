@@ -4,7 +4,7 @@ import inspect
 from memory import MemoryBooker
 from lantypes import VariableValue, LanTypes, ParamChecker, TypeNameArray
 from interface import AnsiColor
-from lanclass import LanFunction
+from lanclass import LanFunction, LanClass
 from version import VERSION
 
 NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
@@ -42,6 +42,19 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     def TypeOf(_, var:VariableValue, asString:VariableValue=VariableValue(LanTypes.boolean, False)) -> VariableValue:
         if asString.value: return VariableValue(LanTypes.string, TypeNameArray[var.typeid])
         else: return VariableValue(LanTypes.integer, var.typeid)
+
+    class Casting(MylangeBuiltinScaffold):
+        @staticmethod
+        def PrintoutDetails(_, castingVariable:VariableValue) -> None:
+            casting:LanClass = castingVariable.value
+            AnsiColor.println("== System.IO.PrintoutDetails ==", AnsiColor.BRIGHT_BLUE)
+            AnsiColor.println("[Properties]", AnsiColor.BRIGHT_BLUE)
+            for k, v in (casting.Properties|casting.PrivateProperties).items():
+                AnsiColor.println(f"{TypeNameArray[v.typeid]} {k}", AnsiColor.BRIGHT_BLUE)
+            AnsiColor.println("[Methods]", AnsiColor.BRIGHT_BLUE)
+            for k, v in (casting.Methods|casting.PrivateMethods).items():
+                AnsiColor.println(f"{TypeNameArray[v.ReturnType]} {k} ({(", ".join([f"{itype} {iname}" for itype, iname in v.Parameters.items()]))})", AnsiColor.BRIGHT_BLUE)
+            AnsiColor.println("==            End            ==", AnsiColor.BRIGHT_BLUE)
         
     class Set(MylangeBuiltinScaffold):
         @staticmethod

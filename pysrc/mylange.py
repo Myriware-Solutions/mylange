@@ -44,7 +44,9 @@ if not linear:
     with open(file_name, "r", encoding='utf-8') as f:
         code = remove_comments(f.read())
         r = structure.interpret(code)
-        AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)
+        if r is None:
+            AnsiColor.println(f"Program Ended with Error", AnsiColor.RED)
+        else: AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)
 else:
     AnsiColor.println(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {VERSION}\nUse CTRL+C or \"return 0\" to close the interpreter.", AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")

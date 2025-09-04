@@ -1,25 +1,23 @@
 class Person has {
 
-    prop string First;
-    prop string Last;
-    prop integer Age => 18;
+    private string First;
+    private string Last;
+    private integer Age => 18;
 
-    def nil constructor(string first, string last) as {
+    public def nil constructor(string first, string last) as {
         print("constructor called!");
         this:First => first;
         this:Last => last;
     };
 
-    def nil Greet() as {
+    public def nil Greet() as {
         string toprint => "Hello %s %s!";
         print(toprint.format(this:First, this:Last));
     };
 
-    def string operation:(string index) as {
-        return "I am a person, " .. index;
-    };
-
-    def string operation[](integer index) as {
+    private def string :(string index) as { return "I am a person, " .. index; };
+    
+    private def string [](integer index) as {
         return "HELLO" .. index;
     };
 };
@@ -27,8 +25,10 @@ class Person has {
 Person Anthony => new Person("Anthony", "Smith");
 Anthony.Greet();
 
-print(Anthony:First);
+print(Anthony);
 
 System.IO.DumpCache();
+
+Casting.PrintoutDetails(Anthony);
 
 return Anthony;
