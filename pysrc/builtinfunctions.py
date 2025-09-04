@@ -48,14 +48,29 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
         def PrintoutDetails(_, castingVariable:VariableValue) -> None:
             casting:LanClass = castingVariable.value
             AnsiColor.println("== System.IO.PrintoutDetails ==", AnsiColor.BRIGHT_BLUE)
-            AnsiColor.println("[Properties]", AnsiColor.BRIGHT_BLUE)
-            for k, v in (casting.Properties|casting.PrivateProperties).items():
-                AnsiColor.println(f"{TypeNameArray[v.typeid]} {k}", AnsiColor.BRIGHT_BLUE)
-            AnsiColor.println("[Methods]", AnsiColor.BRIGHT_BLUE)
-            for k, v in (casting.Methods|casting.PrivateMethods).items():
-                AnsiColor.println(f"{TypeNameArray[v.ReturnType]} {k} ({(", ".join([f"{itype} {iname}" for itype, iname in v.Parameters.items()]))})", AnsiColor.BRIGHT_BLUE)
+
+            a:dict[str, dict[str, dict[str, VariableValue|LanFunction]]] = {
+                "Properties": {
+                    "public": casting.Properties,
+                    "private": casting.PrivateProperties
+                },
+                "Methods": {
+                    "public": casting.Methods,
+                    "private": casting.PrivateMethods
+                }
+            }
+            
+            for attribute_type, attr_info in a.items():
+                AnsiColor.println(f"[{attribute_type}]", AnsiColor.BRIGHT_BLUE)
+                for accessability, items in attr_info.items():
+                    for name, item in items.items():
+                        say:str = None
+                        match attribute_type:
+                            case "Properties": say = f"{accessability} {TypeNameArray[item.typeid]} {name}" 
+                            case "Methods": say = f"{accessability} {TypeNameArray[item.ReturnType]} {name} ({(", ".join([f"{TypeNameArray[itype]} {iname}" for iname, itype in item.Parameters.items()]))})"
+                        AnsiColor.println(say, AnsiColor.BRIGHT_BLUE)
             AnsiColor.println("==            End            ==", AnsiColor.BRIGHT_BLUE)
-        
+
     class Set(MylangeBuiltinScaffold):
         @staticmethod
         def Assign(_, setObject:VariableValue, key:VariableValue, value:VariableValue):
