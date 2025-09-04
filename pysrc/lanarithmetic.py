@@ -28,6 +28,11 @@ class LanArithmetics:
     @staticmethod
     def booleanStatement(a:VariableValue, b:VariableValue, callback) -> VariableValue:
         return VariableValue(LanTypes.boolean, callback(a.value, b.value))
+    
+    @staticmethod
+    def joinStatement(a:VariableValue, b:VariableValue, callback) -> VariableValue:
+        ParamChecker.EnsureIntegrety((a, LanTypes.boolean), (b, LanTypes.boolean))
+        return VariableValue(LanTypes.boolean, callback(a.value, b.value))
 
     LambdaOperations = {
         "+":  lambda a, b: LanArithmetics.withInts(a, b, (lambda a, b: a + b)),
@@ -36,11 +41,18 @@ class LanArithmetics:
         "/":  lambda a, b: LanArithmetics.withInts(a, b, (lambda a, b: a / b)),
         "..": lambda a, b: LanArithmetics.concentrateStrings(a, b),
         "==": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l == r)),
-        "!=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l != r)),
+        "~=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l != r)),
         "<=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l <= r)),
         ">=": lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l >= r)),
         "<" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l < r)),
-        ">" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l > r))
+        ">" : lambda l, r: LanArithmetics.booleanStatement(l, r, (lambda l, r: l > r)),
+
+        "and": lambda l, r: LanArithmetics.joinStatement(l, r, (lambda l, r: l and r)),
+        "&&": lambda l, r: LanArithmetics.joinStatement(l, r, (lambda l, r: l and r)),
+        "or": lambda l, r: LanArithmetics.joinStatement(l, r, (lambda l, r: l or r)),
+        "||": lambda l, r: LanArithmetics.joinStatement(l, r, (lambda l, r: l or r)),
+        "nor": lambda l, r: LanArithmetics.joinStatement(l, r, (lambda l, r: not l and not r)),
+        "~~": lambda l, r: LanArithmetics.joinStatement(l, r, (lambda l, r: not l and not r)),
     }
 
     JoinedOperations = {

@@ -4,8 +4,8 @@ print("Your Number is: " .. number.toString());
 
 if (number < 5) then {
     print("Your number is less then 5");
-} else if (number < 10) then {
+} else if ((number < 10) and (number >= 5)) then {
     print("Your number is between 5 and 10");
 } else then {
     print("Your number is bigger than 10");
-};
+}
