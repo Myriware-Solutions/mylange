@@ -23,12 +23,3 @@ class Person has {
         return "HELLO" .. index;
     };
 };
-
-Person Anthony => new Person("Anthony", "Smith");
-Anthony.Greet();
-
-print(Anthony:First);
-
-System.IO.DumpCache();
-
-return Anthony;

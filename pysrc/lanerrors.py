@@ -52,3 +52,9 @@ class LanErrors:
             this.value = value
             this.message = msg
             super().__init__(this.message)
+
+    class MissingImportError(MylangeError):
+        def __init__(this, msg="Cannot find thing to import", value=None):
+            this.value = value
+            this.message = msg
+            super().__init__(this.message)

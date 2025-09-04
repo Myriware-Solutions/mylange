@@ -43,17 +43,14 @@ class LanFunction:
         for i, param in enumerate(this.Parameters.items()):
             if (param[1] != LanTypes.dynamic) and (params[i].typeid != param[1]): raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].typeid}")
             container.Booker.set(param[0], params[i])
-        r:VariableValue = None
-        throw_break = False
-        try: 
-            r = container.interpret(this.Code, True, objectMethodMaster)
-        except LanErrors.Break: throw_break = True
+        Return:VariableValue = container.interpret(this.Code, True, objectMethodMaster)
         # Clear New Memory values, keeping old or altered ones
         if includeMemory: 
             for key in list(parent.Booker.Registry.keys()):
                 if key not in old_mem_keys: del parent.Booker.Registry[key]
-        if throw_break: raise LanErrors.Break()
-        return r
+        if (this.ReturnType != LanTypes.dynamic) and (Return.typeid != this.ReturnType):
+            raise LanErrors.WrongTypeExpectationError("Function is trying to return wrong value type.")
+        return Return
 
 # =========== #
 #   Classes   #

@@ -23,7 +23,7 @@ class ActualRegex(Enum):
     CachedChar = re.compile(r"(1x[a-fA-F0-9]+)", flags=re.UNICODE)
     CachedString = re.compile(r"^(2x[a-fA-F0-9]+)", flags=re.UNICODE)
     # Imports
-    ImportStatement = re.compile(r"from +(\w+) +import +([\w, ]+)", flags=re.UNICODE)
+    ImportStatement = re.compile(r"from +(.+?) +import +([\w, ]+)", flags=re.UNICODE)
     # Loops
     ForStatement = re.compile(r"for +((?:\w+ +[a-zA-Z]+)|(?:\[[a-zA-Z ,]+\])) +in +(.+) +do (.+)", flags=re.UNICODE)
     WhileStatement = re.compile(r"^while *\((.*)\) *do +(.*)", flags=re.UNICODE)
