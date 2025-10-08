@@ -3,3 +3,6 @@ Example:
 def operation<(Class l, Class R) as {
     ...
 };
+
+This involves redoing how classes store function names,
+because I'd also like to add overloads to functions.

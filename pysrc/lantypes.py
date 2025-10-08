@@ -135,7 +135,16 @@ class NotValidType(Exception):
         self.message = message
         super().__init__(self.message)
 
-TypeNameArray:list = ["nil", "boolean", "integer", "character", "string", "array", "set", "casting", "dynamic"]
+TypeNameArray:list[list[str]] = [
+    ["nil"],
+    ["boolean", "bool"],
+    ["integer", "int"],
+    ["character", "char"], 
+    ["string", "str"], 
+    ["array", "arr"], 
+    ["set"], 
+    ["casting"], 
+    ["dynamic"]]
 
 class LanTypes(IntEnum):
     # Handlers #
@@ -162,12 +171,13 @@ class LanTypes(IntEnum):
     
     @staticmethod
     def from_string(typestring:str) -> int:
-        try: return TypeNameArray.index(typestring)
-        except: return -1
+        for i, aliases in enumerate(TypeNameArray):
+            if typestring in aliases: return i
+        return -1
 
     @staticmethod
     def to_string_name(typeid:int) -> str:
-        return TypeNameArray[typeid]
+        return TypeNameArray[typeid][0]
 
 class ParamChecker:
     @staticmethod

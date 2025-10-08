@@ -73,6 +73,7 @@ class MatchBox:
             with open(file_name, 'r') as imports_file:
                 mi.interpret(imports_file.read())
                 for funct_name in functions:
+                    this.echo(f"Processing import request: {funct_name}")
                     if (funct_name in mi.Booker.FunctionRegistry):
                         this.Booker.FunctionRegistry[funct_name] = mi.Booker.FunctionRegistry[funct_name]
                     elif (funct_name in mi.Booker.ClassRegistry):

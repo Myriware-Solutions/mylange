@@ -11,7 +11,7 @@ NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
 
 class MylangeBuiltinScaffold:
     @classmethod
-    def is_builtin(this, class_method_path:str):
+    def is_builtin(this, class_method_path:list[str]):
         return this.get_method(class_method_path) != None
     @classmethod
     def get_method(this, class_method_path:list[str]):
@@ -45,8 +45,8 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
 
     class Casting(MylangeBuiltinScaffold):
         @staticmethod
-        def PrintoutDetails(_, castingVariable:VariableValue) -> None:
-            casting:LanClass = castingVariable.value
+        def PrintoutDetails(booker:MemoryBooker, castingVariable:VariableValue, isNameOfType:VariableValue=VariableValue(LanTypes.boolean, False)) -> None:
+            casting:LanClass = booker.ClassRegistry[castingVariable.value] if (isNameOfType.value == True) else castingVariable.value
             AnsiColor.println("== System.IO.PrintoutDetails ==", AnsiColor.BRIGHT_BLUE)
 
             a:dict[str, dict[str, dict[str, VariableValue|LanFunction]]] = {
@@ -86,8 +86,15 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
             @staticmethod
             def DumpCache(booker:MemoryBooker) -> None:
                 AnsiColor.println("== :System.IO.DumpCache ==", AnsiColor.BRIGHT_BLUE)
-                for k, v in booker.Registry.items():
-                    AnsiColor.println(f"{k} @ {v.typeid} => {v}", AnsiColor.BRIGHT_BLUE)
+                items = booker.Registry.items() | booker.FunctionRegistry.items() | booker.ClassRegistry.items()
+                for k, v in items:
+                    match v:
+                        case VariableValue():
+                            AnsiColor.println(f"{k} @ {v.typeid} => {v}", AnsiColor.BRIGHT_BLUE)
+                        case LanClass():
+                            AnsiColor.println(f"class {k}", AnsiColor.BRIGHT_BLUE)
+                        case LanFunction():
+                            AnsiColor.println(f"function {k}", AnsiColor.BRIGHT_BLUE)
                 AnsiColor.println("==         End          ==", AnsiColor.BRIGHT_BLUE)
             @staticmethod
             def Input(_, prompt:VariableValue) -> VariableValue:
@@ -157,7 +164,7 @@ class VariableTypeMethods:
         @staticmethod
         def toString(_, var:VariableValue) -> VariableValue:
             return VariableValue(LanTypes.string, f"{var.value}")
-
+        
     class String:
         # Use:
         # Returns a character at the index in the string.

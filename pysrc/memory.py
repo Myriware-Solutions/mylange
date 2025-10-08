@@ -46,7 +46,13 @@ class MemoryBooker:
                     else:
                         varin = varin.value[rest]
                 elif ext.startswith('[') and ext.endswith(']'):
-                    varin = varin.value[int(ext[1:-1])]
+                    index:int = int(ext[1:-1])
+                    if (varin.typeid == LanTypes.casting):
+                        if (varin.value.has_method('[]')):
+                            varin = varin.value.do_method('[]', [VariableValue(LanTypes.integer, index)])
+                        else:
+                            raise LanErrors.NotIndexableError("This class was not defined with a braket-index method, or that method is private.")
+                    else: varin = varin.value[index]
                 else: raise Exception("This is not a vaild indexing approch.")
         return varin
     

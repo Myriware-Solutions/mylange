@@ -88,7 +88,7 @@ class LanClass:
         lines = LanClass.clean_code_block(codeBlockLines)
         #print(lines)
         property_strs:list[re.Match[str]] = [ActualRegex.PropertyStatement.value.match(item) for item in lines if ActualRegex.PropertyStatement.value.search(item)]
-        method_strs:list[re.Match[str]] = [ ActualRegex.ClassMethodStatement.value.match(item) for item in lines if ActualRegex.ClassMethodStatement.value.search(item)]
+        method_strs:list[re.Match[str]] = [ActualRegex.ClassMethodStatement.value.match(item) for item in lines if ActualRegex.ClassMethodStatement.value.search(item)]
         # Assign Proproties
         for property_str in property_strs:
             parent.echo(f"[Classy] Working on line: {property_str.group(0)}")
