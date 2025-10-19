@@ -1,0 +1,12 @@
+{
+    <
+        row-col;
+        schema:str<key>,int,char;
+        key-row:0
+    >
+    (name),    (age), (gender);
+    "Anthony", 18,    'm';
+    "James",   18,    'm';
+    "Rose",    10,    'f';
+    "Jose",    10,    'm'
+}
