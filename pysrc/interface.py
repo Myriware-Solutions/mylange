@@ -1,7 +1,19 @@
-# IMPORTS
+### IMPORTS ###
+# Python #
 from enum import Enum
-# Thanks Chat
+### CODE ###
+class EffectString:
+    String:str
+    Color:'AnsiColor'
+    def __init__(self, color:'AnsiColor', string:str) -> None:
+        self.String = string
+        self.Color = color
+    def __repr__(self) -> str:
+        return f"{self.Color.value}{self.String}{AnsiColor.RESET.value}"
+
 class AnsiColor(Enum):
+    """Allows easy manipulation of strings for colorful terminal output. Simply multiply (*) a string
+    by one of the enums, and print it!"""
     RESET = "\033[0m"
     BLACK = "\033[30m"
     RED = "\033[31m"
@@ -21,10 +33,15 @@ class AnsiColor(Enum):
     BRIGHT_CYAN = "\033[96m"
     BRIGHT_WHITE = "\033[97m"
 
-    @staticmethod
-    def colorize(text:str, color:'AnsiColor') -> str:
-        return f"{color.value}{text}{AnsiColor.RESET.value}"
-    
-    @staticmethod
-    def println(text:str, color:'AnsiColor') -> None:
-        print(AnsiColor.colorize(text, color))
+    def __rmul__(self, other:str) -> EffectString:
+        """Returns a ColorString Object containing
+        the string and color information.
+
+        Args:
+            other (str): String to print.
+
+        Returns:
+            ColorString: ColorString object containing string and color info.
+        """
+        if isinstance(other, str): return EffectString(self, other)
+        return NotImplemented

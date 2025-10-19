@@ -14,17 +14,10 @@ class LanFunction:
     ReturnType:int
     Parameters:dict[str,int]
     Code:str
-    def __init__(this, fName:str, fReturnType:str, fParamString:str, fCode:str):
-        this.Parameters = {}
+    def __init__(this, fName:str, fReturnType:str, fParamString:str|dict[str,int], fCode:str):
+        this.Parameters = fParamString if type(fParamString) is dict else this.CreateParamList(fParamString)
         this.Name = fName
         this.ReturnType = LanTypes.from_string(fReturnType)
-        try:
-            for set in fParamString.split(","):
-                if set == "": continue
-                set_parts = set.strip().split(" ")
-                this.Parameters[set_parts[1]] = LanTypes.from_string(set_parts[0])
-        except IndexError:
-            raise Exception("Fatal Error: Params Expected and Given missmatch: ")
         this.Code = fCode
     
     def execute(this, parent:any, params:list[VariableValue], includeMemory:bool=False, objectMethodMaster:'LanClass'=None) -> VariableValue:
@@ -51,6 +44,16 @@ class LanFunction:
                 if key not in old_mem_keys: del parent.Booker.Registry[key]
         if (this.ReturnType != LanTypes.dynamic) and (Return.typeid != this.ReturnType):
             raise LanErrors.WrongTypeExpectationError("Function is trying to return wrong value type.")
+        return Return
+    
+    @staticmethod
+    def CreateParamList(paramString:str) -> dict[str,int]:
+        Return = {}
+        #TODO: Move this to regex file
+        reg = r"(\w+) +(\w+)(?: ?, ?)?"
+        m = re.findall(reg, paramString)
+        for set in m:
+            Return[set[2]] = LanTypes.from_string(set[1])
         return Return
 
 class AttributeAccessabilities(IntEnum):
