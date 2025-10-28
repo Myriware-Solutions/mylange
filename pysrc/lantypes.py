@@ -33,6 +33,9 @@ class VariableValue:
                 return f"({', '.join(lset)})"
         return f"<{this.value}@{this.typeid}>"
     
+    def __repr__(self) -> str:
+        return self.__str__()
+    
     def isof(this, type:int) -> bool:
         return this.typeid == type
     

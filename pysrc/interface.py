@@ -10,6 +10,10 @@ class EffectString:
         self.Color = color
     def __repr__(self) -> str:
         return f"{self.Color.value}{self.String}{AnsiColor.RESET.value}"
+    def __add__(self, other:str) -> str:
+        return self.__repr__() + other
+    def __radd__(self, other:str) -> str:
+        return other + self.__repr__()
 
 class AnsiColor(Enum):
     """Allows easy manipulation of strings for colorful terminal output. Simply multiply (*) a string

@@ -1,23 +1,24 @@
 # IMPORTS
 import inspect
 
+from importlib.metadata import version
+
 from memory import MemoryBooker
 from lantypes import VariableValue, LanTypes, ParamChecker, TypeNameArray
 from interface import AnsiColor
 from lanclass import LanFunction, LanClass
-from version import VERSION
 
 NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
 
 class MylangeBuiltinScaffold:
     @classmethod
-    def is_builtin(this, class_method_path:list[str]):
-        return this.get_method(class_method_path) != None
+    def is_builtin(cls, class_method_path:list[str]):
+        return cls.get_method(class_method_path) != None
     @classmethod
-    def get_method(this, class_method_path:list[str]):
+    def get_method(cls, class_method_path:list[str]):
         first:str = class_method_path[0]
-        if hasattr(this, first):
-            attribute = getattr(this, first)
+        if hasattr(cls, first):
+            attribute = getattr(cls, first)
             if inspect.isfunction(attribute) or inspect.ismethod(attribute):
                 return attribute
             elif isinstance(attribute, type):
@@ -33,9 +34,10 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     @staticmethod
     def load(_, filePath:VariableValue) -> VariableValue:
         from interpreter import MylangeInterpreter
+        
         structure:MylangeInterpreter = MylangeInterpreter("Main")
         print("Found here")
-        with open(filePath.value, "r", encoding='utf-8') as f:
+        with open(filePath.value, mode="r", encoding='utf-8') as f:
             r = structure.interpret(f.read())
             return r
         
@@ -46,9 +48,9 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     class Casting(MylangeBuiltinScaffold):
         @staticmethod
         def PrintoutDetails(booker:MemoryBooker, castingVariable:VariableValue, isNameOfType:VariableValue=VariableValue(LanTypes.boolean, False)) -> None:
-            casting:LanClass = booker.ClassRegistry[castingVariable.value] if (isNameOfType.value == True) else castingVariable.value
-            AnsiColor.println("== System.IO.PrintoutDetails ==", AnsiColor.BRIGHT_BLUE)
-
+            casting = booker.ClassRegistry[castingVariable.value] if (isNameOfType.value == True) else castingVariable.value
+            assert type(casting) is LanClass
+            print("== System.IO.PrintoutDetails =="*AnsiColor.BRIGHT_BLUE)
             a:dict[str, dict[str, dict[str, VariableValue|LanFunction]]] = {
                 "Properties": {
                     "public": casting.Properties,
@@ -80,7 +82,7 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     class System(MylangeBuiltinScaffold):
         @staticmethod
         def Version(_) -> None:
-            AnsiColor.println(f"Mylange Version: {VERSION}", AnsiColor.BRIGHT_BLUE)
+            AnsiColor.println(f"Mylange Version: {(version("mylange"))}", AnsiColor.BRIGHT_BLUE)
         
         class IO(MylangeBuiltinScaffold):
             @staticmethod

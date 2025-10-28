@@ -461,7 +461,7 @@ class CodeCleaner:
     @staticmethod
     def remove_comments(string:str) -> str:
         result:str = re.sub(r"^//.*$", '', string, flags=re.MULTILINE)
-        result = re.sub(r"/\[[\w\W]*\]/", '', result, flags=re.MULTILINE)
+        result = re.sub(r"\/\[[\w\W]*?\]\/", '', result, flags=re.MULTILINE)
         return result
 
     # thanks ChatGPT
