@@ -1,0 +1,11 @@
+{
+    <
+        mode:3;
+        keys-row:0;
+        schema:str,int
+    >
+    (name),(age);
+    "anthony", 18;
+    "james", 19;
+    "zach", 20
+}

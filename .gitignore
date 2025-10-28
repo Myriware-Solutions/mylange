@@ -1,3 +1,5 @@
 ./__pycache__/
 build/
 pysrc/__pycache__/
+dist/
+**egg-info/

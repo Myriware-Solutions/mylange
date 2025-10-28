@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mylange"
+version = "0.1.0"
+description = "Myriware Mylange Programming Language runtime companian."
+authors = [{name="Anthony Smith", email="anthony@myriware.space"}]
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [ ]
+
+[tool.setuptools.packages.find]
+where = ["pysrc"]
