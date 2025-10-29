@@ -12,11 +12,9 @@ def remove_comments(string:str) -> str:
         return result
 def clear_terminal():
     # Check if the operating system is Windows ('nt')
-    if os.name == 'nt':
-        _ = os.system('cls')
+    if os.name == 'nt': _ = os.system('cls')
     # Otherwise, assume it's a Unix-like system
-    else:
-        _ = os.system('clear')
+    else: _ = os.system('clear')
 
 def get_levels(string:str) -> dict[str, int]:
     Return = {}
