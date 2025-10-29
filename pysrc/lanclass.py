@@ -8,7 +8,6 @@ from lanerrors import LanErrors
 from lanregexes import ActualRegex
 
 import typing
-
 if typing.TYPE_CHECKING:
     from interpreter import MylangeInterpreter
 # =========== #
