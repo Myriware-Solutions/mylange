@@ -3,10 +3,14 @@ from enum import IntEnum, Enum
 from lanregexes import ActualRegex
 import re
 
+import typing
+if typing.TYPE_CHECKING:
+    from lanclass import LanClass
+
 # Type castisting for variables
 
 class VariableValue:
-    type VariableValueLike = None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']
+    type VariableValueLike = None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|'LanClass'
     typeid:int
     def __init__(self, typeid:int, value:VariableValueLike=None):
         self.typeid = typeid

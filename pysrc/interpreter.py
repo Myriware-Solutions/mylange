@@ -252,7 +252,7 @@ class MylangeInterpreter:
 
     ObjectMethodMaster:LanClass
 
-    def interpret(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass=None) -> VariableValue|None:
+    def interpret(this, string:str, overrideClean:bool=False, objectMethodMaster:LanClass|None=None) -> VariableValue|None:
         this.ObjectMethodMaster = objectMethodMaster
         try:
             return this.interpret_logic(string, overrideClean)
