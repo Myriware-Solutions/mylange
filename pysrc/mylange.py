@@ -3,7 +3,7 @@ import re, os, sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
 from lantypes import LanTypes
-from version import VERSION
+from importlib.metadata import version
 # Vars
 
 def remove_comments(string:str) -> str:
@@ -12,11 +12,9 @@ def remove_comments(string:str) -> str:
         return result
 def clear_terminal():
     # Check if the operating system is Windows ('nt')
-    if os.name == 'nt':
-        _ = os.system('cls')
+    if os.name == 'nt': _ = os.system('cls')
     # Otherwise, assume it's a Unix-like system
-    else:
-        _ = os.system('clear')
+    else: _ = os.system('clear')
 
 def get_levels(string:str) -> dict[str, int]:
     Return = {}
@@ -33,7 +31,7 @@ def no_more_indent(levels:dict[str, int]) -> bool:
 # Entry point for using the CLI
 linear:bool=False
 params:list[str] = sys.argv
-file_name:str
+file_name:str|None=None
 if (len(params) >= 2):
     file_name = params[1]
 else: linear = True
@@ -41,14 +39,16 @@ else: linear = True
 if not linear:
     structure:MylangeInterpreter = MylangeInterpreter("Main")
     if "--echoes" in params: structure.enable_echos()
+    assert file_name is not None
     with open(file_name, "r", encoding='utf-8') as f:
         code = remove_comments(f.read())
         r = structure.interpret(code)
         if r is None:
-            AnsiColor.println(f"Program Ended with Error", AnsiColor.RED)
-        else: AnsiColor.println(f"Returned with: {r}", AnsiColor.GREEN)
+            print(f"Program Ended with Error"*AnsiColor.RED)
+        else: 
+            print(f"Returned with: {r}"*AnsiColor.GREEN)
 else:
-    AnsiColor.println(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {VERSION}\nUse CTRL+C or \"return 0\" to close the interpreter.", AnsiColor.CYAN)
+    print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version("mylange")}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")
     running:bool = True
     input_str:str = ""
@@ -60,7 +60,7 @@ else:
     errors:list[Exception] = []
     while running:
         try:
-            chevron = AnsiColor.colorize(">> " if no_more_indent(index_levels) else f".. {("  "*sum(index_levels.values()))}", AnsiColor.BLUE)
+            chevron = (">> " if no_more_indent(index_levels) else f".. {("  "*sum(index_levels.values()))}")*AnsiColor.BLUE
             in_str:str = input(chevron)
             for key, val in get_levels(in_str).items():
                 index_levels[key] += val
@@ -77,7 +77,7 @@ else:
                         err_in = input(f"errno [{len(errors)}]: ")
                         print(errors[int(err_in)])
                     case _:
-                        res = mi.interpret(input_str)
+                        res = mi.interpret(input_str); assert res is not None
                         if (res.typeid == LanTypes.integer) and (res.value == 0):
                             running = False
                 input_str = ""
@@ -86,7 +86,7 @@ else:
         except KeyboardInterrupt:
             running = False
         except Exception as e:
-            AnsiColor.println(e.with_traceback() if (mi.EchosEnables) else e, AnsiColor.RED)
+            print(str(e.with_traceback(None))*AnsiColor.RED)
             errors.append(e)
             input_str = ""
-    AnsiColor.println(f"Goodbye! :)", AnsiColor.CYAN)
+    print(f"Goodbye! :)"*AnsiColor.CYAN)

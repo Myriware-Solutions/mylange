@@ -6,6 +6,10 @@ from lanregexes import ActualRegex
 from lantypes import LanTypes, RandomTypeConversions, ParamChecker
 from lantypes import VariableValue
 
+import typing
+if typing.TYPE_CHECKING:
+    from lanclass import LanFunction
+
 NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
 # Handles Arithmetics of All kinds
 class LanArithmetics:
@@ -19,8 +23,10 @@ class LanArithmetics:
         types = ParamChecker.GetTypesOfParameters(a, b)
         match types:
             case [LanTypes.string, LanTypes.string]:
+                assert type(a.value) is str; assert type(b.value) is str
                 return VariableValue(LanTypes.string, a.value + b.value)
             case [LanTypes.string, LanTypes.integer]:
+                assert type(a.value) is str; assert type(b.value) is int
                 return VariableValue(LanTypes.string, a.value * b.value)
             case _:
                 raise Exception("Cannot perform operations on these!")
@@ -64,13 +70,15 @@ class LanArithmetics:
     def evalute_string(parent:'MylangeInterpreter', string:str) -> VariableValue:
         evaluation_chain = LanArithmetics.parse_expression(string)
         if (evaluation_chain == None): raise Exception("Could not parse the arithmetic expression")
-        working_link:VariableValue = None
+        working_link:'VariableValue|LanFunction|None' = None
         for i, link in enumerate(evaluation_chain):
             if i == 0:
                 working_link = parent.format_parameter(link[1])
             else:
                 next_link = parent.format_parameter(link[1])
+                assert type(working_link) is VariableValue; assert type(next_link) is VariableValue
                 working_link = LanArithmetics.evaluate(working_link, link[0].strip(), next_link, i)
+        assert type(working_link) is VariableValue
         return working_link
     
     @staticmethod

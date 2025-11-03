@@ -1,8 +1,8 @@
 print("Hello! What's your name?");
-string Name => input("name> ");
+string Name => System.IO.Input("name> ");
 if (Name == "Anthony") then {
     print("Wait, what's your last name?");
-    string L_Name => input("> ");
+    string L_Name => System.IO.Input("> ");
     if (L_Name == "Smith") then {
         print("OMG That's so cool! That's my name too!");
     } else {

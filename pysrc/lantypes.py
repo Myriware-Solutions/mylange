@@ -3,66 +3,74 @@ from enum import IntEnum, Enum
 from lanregexes import ActualRegex
 import re
 
+import typing
+if typing.TYPE_CHECKING:
+    from lanclass import LanClass
+
 # Type castisting for variables
 
 class VariableValue:
+    type VariableValueLike = None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|'LanClass'
     typeid:int
-    def __init__(this, typeid:int, value:any=None):
-        from lanclass import LanClass
-        this.typeid = typeid
-        this.value:None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|LanClass = None
-        if (value != None): this.value = value
+    def __init__(self, typeid:int, value:VariableValueLike=None):
+        self.typeid = typeid
+        self.value:VariableValue.VariableValueLike = None
+        if (value != None): self.value = value
 
-    def __str__(this):
-        match (this.typeid):
+    def __str__(self):
+        match (self.typeid):
             case LanTypes.nil:
                 return 'nil'
             case LanTypes.boolean:
-                return f"{this.value}".lower()
+                return f"{self.value}".lower()
             case LanTypes.integer:
-                return f"{this.value}"
+                return f"{self.value}"
             case LanTypes.character:
-                return f"'{this.value}'"
+                return f"'{self.value}'"
             case LanTypes.string:
-                return f'"{this.value}"'
+                return f'"{self.value}"'
             case LanTypes.array:
-                larray = [f"{item}" for item in this.value]
+                assert type(self.value) is list
+                larray = [f"{item}" for item in self.value]
                 return f"[{', '.join(larray)}]"
             case LanTypes.set:
-                lset = [f"{k}:{v}" for k, v in this.value.items()]
+                assert type(self.value) is dict
+                lset = [f"{k}:{v}" for k, v in self.value.items()]
                 return f"({', '.join(lset)})"
-        return f"<{this.value}@{this.typeid}>"
+        return f"<{self.value}@{self.typeid}>"
     
     def __repr__(self) -> str:
         return self.__str__()
     
-    def isof(this, type:int) -> bool:
-        return this.typeid == type
+    def isof(self, type:int) -> bool:
+        return self.typeid == type
     
-    def to_string(this):
-        match (this.typeid):
+    def to_string(self):
+        match (self.typeid):
             case LanTypes.boolean:
-                return f"{this.value}".lower()
+                return f"{self.value}".lower()
             case LanTypes.integer:
-                return f"{this.value}"
+                return f"{self.value}"
             case LanTypes.character | LanTypes.string:
-                return this.value
+                return self.value
             case _:
-                return this.__str__()
+                return self.__str__()
             
-    def colon_access(this, index:str) -> 'VariableValue':
+    def colon_access(self, index:str) -> 'VariableValue':
         from builtinfunctions import ParamChecker
-        ParamChecker.EnsureIntegrety((this, LanTypes.set))
-        return this.value[index]
+        ParamChecker.EnsureIntegrety((self, LanTypes.set))
+        assert type(self.value) is dict
+        return self.value[index]
 
-    def bracket_access(this, index:int) -> 'VariableValue':
+    def bracket_access(self, index:int) -> 'VariableValue':
         from builtinfunctions import ParamChecker
-        ParamChecker.EnsureIntegrety((this, LanTypes.array))
-        return this.value[index]
+        ParamChecker.EnsureIntegrety((self, LanTypes.array))
+        assert type(self.value) is list
+        return self.value[index]
 
 class RandomTypeConversions:
     @staticmethod
-    def convert(string:str, mylangeInterpreter=None) -> VariableValue:
+    def convert(string:str, mylangeInterpreter) -> VariableValue:
         typeid, other = RandomTypeConversions.get_type(string)
         match (typeid):
             case LanTypes.nil:
@@ -98,6 +106,8 @@ class RandomTypeConversions:
                     var = mi.format_parameter(key_value[1])
                     ReturnS[key_value[0].strip()] = var
                 return VariableValue(LanTypes.set, ReturnS)
+            case _:
+                raise Exception("Typeid is Unkown.")
 
     @staticmethod
     def get_type(string:str) -> tuple[int, int]:
