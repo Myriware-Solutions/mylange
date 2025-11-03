@@ -386,12 +386,12 @@ class MylangeInterpreter:
                 working_var = self.format_parameter(chain_link[1])
             else:
                 formatedParams = self.format_parameter_list(chain_link[1]) if chain_link[1] != None else []
-                assert type(working_var) is VariableValue
+                if (working_var is not None) and (type(working_var) is not VariableValue): raise LanErrors.MylangeError(f"Expected Variable value, got {type(working_var)} for '{working_var}'")
                 working_var = self.evalute_method(working_var, chain_link[0], formatedParams, i)
         assert type(working_var) is VariableValue
         return working_var
         
-    def evalute_method(self, base:VariableValue, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|None:
+    def evalute_method(self, base:VariableValue|None, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|None:
         # Create Virtual Workspace
         Return:VariableValue|LanFunction|None = None
         self.echo(f"Working chain -{chainIndex}-: {methodName}; {methodParameters}")
