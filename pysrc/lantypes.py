@@ -1,6 +1,7 @@
 # IMPORTS
 from enum import IntEnum, Enum, unique
 from lanregexes import ActualRegex
+from interpreter import CodeCleaner
 import re
 
 import typing
@@ -25,7 +26,7 @@ class RandomTypeConversions:
             case LanScaffold.character:
                 return VariableValue(LanType.char(), string[1:-1])
             case LanScaffold.string:
-                return VariableValue(LanType.str(), string[1:-1])
+                return VariableValue(LanType.string(), string[1:-1])
             
             case LanScaffold.array:
                 insides:str = string[1:-1]
@@ -112,10 +113,10 @@ class LanScaffold(IntEnum):
     dynamic   = 8
     
     @classmethod
-    def from_string(cls, typestring:str) -> int:
+    def from_string(cls, typestring:str) -> 'LanScaffold':
         for i, aliases in enumerate(cls.TypeNameArray()):
-            if typestring in aliases: return i
-        return -1
+            if typestring in aliases: return LanScaffold(i)
+        raise Exception("Could not find type")
 
     @classmethod
     def to_string_name(cls, typeid:int) -> str:
@@ -145,14 +146,18 @@ class LanType():
         self.Archetype = archetype
     
     def __eq__(self, other:object) -> bool:
-        if type(other) is not LanType: raise Exception("Cannot compare these types!")
-        if self.TypeNum.value != other.TypeNum.value: return False
-        if (self.Archetype is None) and (other.Archetype is None): return True
-        assert self.Archetype is not None; assert other.Archetype is not None
-        if len(self.Archetype) != len(other.Archetype): return False
-        for i, archtypette in enumerate(self.Archetype):
-            if archtypette != other.Archetype[i]: return False
-        return True
+        
+        if type(other) is LanType:
+            if self.TypeNum.value != other.TypeNum.value: return False
+            if (self.Archetype is None) and (other.Archetype is None): return True
+            assert self.Archetype is not None; assert other.Archetype is not None
+            if len(self.Archetype) != len(other.Archetype): return False
+            for i, archtypette in enumerate(self.Archetype):
+                if archtypette != other.Archetype[i]: return False
+            return True
+        elif type(other) is LanScaffold:
+            return self.TypeNum.value == other.value
+        else: raise Exception("Cannot compare these types!")
     
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
@@ -174,7 +179,20 @@ class LanType():
     def char(): return LanType(LanScaffold.character)
     
     @staticmethod
-    def str(): return LanType(LanScaffold.string)
+    def string(): return LanType(LanScaffold.string)
+    
+    @classmethod
+    def get_type_from_typestr(cls, string:str) -> 'LanType':
+        reg = re.compile(r"(\w+)\s?(?:<([\w<>\s]+)>)?")
+        m = reg.match(string); assert m is not None
+        base = LanScaffold.from_string(m.group(1))
+        if m.group(2):
+            archetypette_strs = CodeCleaner.split_top_level_commas(m.group(2))
+            l:list[LanType] = []
+            for archetypette_str in archetypette_strs:
+                l.append(cls.get_type_from_typestr(archetypette_str))
+            return LanType(base, l)
+        else: return LanType(base)
 
 class ParamChecker:
     @staticmethod

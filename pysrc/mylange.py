@@ -2,7 +2,7 @@
 import re, os, sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
-from lantypes import LanTypes
+from lantypes import LanType, LanScaffold
 from importlib.metadata import version
 # Vars
 
@@ -78,7 +78,7 @@ else:
                         print(errors[int(err_in)])
                     case _:
                         res = mi.interpret(input_str); assert res is not None
-                        if (res.typeid == LanTypes.integer) and (res.value == 0):
+                        if (res.Type == LanScaffold.integer) and (res.value == 0):
                             running = False
                 input_str = ""
             else:
