@@ -3,7 +3,7 @@ import re
 
 from lanregexes import ActualRegex
 from lanerrors import LanErrors
-from lantypes import VariableValue, LanTypes
+from lantypes import VariableValue, LanType, LanScaffold
 from lanclass import LanClass, LanFunction
 from enum import IntEnum, StrEnum
 
@@ -37,10 +37,10 @@ class MemoryBooker:
                 ext:str = ext
                 if ext.startswith(':'):
                     rest:str = ext[1:]
-                    if (varin.typeid == LanTypes.casting):
+                    if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
                         if (varin.value.has_method(':')):
-                            varin = varin.value.do_method(':', [VariableValue(LanTypes.string, rest)])
+                            varin = varin.value.do_method(':', [VariableValue(LanType.string(), rest)])
                         else:
                             try:
                                 varin = varin.value.Properties[rest]
@@ -51,10 +51,10 @@ class MemoryBooker:
                         varin = varin.value[rest]
                 elif ext.startswith('[') and ext.endswith(']'):
                     index:int = int(ext[1:-1])
-                    if (varin.typeid == LanTypes.casting):
+                    if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
                         if (varin.value.has_method('[]')):
-                            varin = varin.value.do_method('[]', [VariableValue(LanTypes.integer, index)])
+                            varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)])
                         else:
                             raise LanErrors.NotIndexableError("This class was not defined with a braket-index method, or that method is private.")
                     else:

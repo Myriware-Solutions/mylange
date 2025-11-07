@@ -5,7 +5,7 @@ import copy
 
 from lanregexes import ActualRegex
 from memory import MemoryBooker
-from lantypes import LanTypes, VariableValue, RandomTypeConversions, ParamChecker
+from lantypes import VariableValue, RandomTypeConversions, ParamChecker, LanType, LanScaffold
 #from booleanlogic import LanBooleanStatementLogic
 from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions, VariableTypeMethods
@@ -14,7 +14,7 @@ from interface import AnsiColor
 from lanclass import LanClass, LanFunction
 # GLOBALS
 FILE_EXT:str = ".my"
-NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
+NIL_RETURN:VariableValue = VariableValue(LanType.nil(), None)
 # Defines all the logic held by the different matches
 def all_matchers(base):
     """Recursively yield all subclasses of `base`"""
@@ -72,13 +72,24 @@ class MatchBox:
         pattern = ActualRegex.VariableDecleration.value
         @classmethod
         def handle(cls, self, m):
-            typeid:int = LanTypes.from_string(m.group(2))
-            name:str = m.group(3)
-            value_str:str = m.group(5)
+            typeid = LanType.get_type_from_typestr(m.group(1))
+            name:str = m.group(2)
+            value_str:str = m.group(4)
             value = self.format_parameter(value_str)
+            # Ensure that the variable and what it's being assinged match in type
+            if (type(value) is VariableValue) and typeid != value.Type:
+                if typeid == LanScaffold.array and value.Type == LanScaffold.array:
+                    if value.value == []: pass
+                    elif typeid.Archetype is None: pass
+                elif typeid == LanScaffold.set and value.Type == LanScaffold.set:
+                    if value.value == {}: pass
+                    elif typeid.Archetype is None: pass
+                else: raise LanErrors.WrongTypeExpectationError(f"The type declared and recieved do not match! Expected {typeid}, got {value.Type}")
             self.echo(f"self is a Variable Declaration! {name}@{typeid}({m.group(2)}) {value}", indent=1)
             assert type(value) is VariableValue
-            self.Booker.set(name, value)
+            # Create the real, correctly typed varibale, as some empty arrays/sets will remove their archetypes
+            var = VariableValue(typeid, value.value)
+            self.Booker.set(name, var)
             return NIL_RETURN
     class VariableRedeclaration(LineMatcher):
         pattern = ActualRegex.VariableRedeclaration.value
@@ -93,7 +104,7 @@ class MatchBox:
             var = self.Booker.get(fullvarname)
             castedvalue = self.format_parameter(newvalue)
             assert type(castedvalue) is VariableValue
-            if castedvalue.typeid != var.typeid: raise LanErrors.WrongTypeExpectationError()
+            if castedvalue.Type != var.Type: raise LanErrors.WrongTypeExpectationError()
             form = self.format_parameter(newvalue); assert type(form) is VariableValue
             var.value = form.value
             return NIL_RETURN
@@ -113,11 +124,11 @@ class MatchBox:
                     proceed = True
                 else:
                     bool_res = self.format_parameter(bool_test); assert type(bool_res) is VariableValue
-                    ParamChecker.EnsureIntegrety((bool_res, LanTypes.boolean))
+                    ParamChecker.EnsureIntegrety((bool_res, LanType.bool()))
                     assert type(bool_res.value) is bool
                     proceed = bool_res.value
                 if proceed:
-                    funct = LanFunction("If", "nil", "", logic)
+                    funct = LanFunction("If", LanType.nil(), {}, logic)
                     funct.execute(self, [], True)
                     break
             return NIL_RETURN
@@ -125,7 +136,7 @@ class MatchBox:
         pattern = ActualRegex.FunctionStatement.value
         @classmethod
         def handle(cls, self, m):
-            return_type:str = m.group(1)
+            return_type = LanType.get_type_from_typestr(m.group(1))
             function_name:str = m.group(2)
             function_parameters_string = m.group(3)
             function_code_string = m.group(4)
@@ -145,8 +156,8 @@ class MatchBox:
     class ForStatement(LineMatcher):
         pattern = ActualRegex.ForStatement.value
         @classmethod
-        def handle(cls, self, m):
-            loop_var_raw = str(m.group(1))
+        def handle(cls, self, m:re.Match[str]):
+            loop_var_raw = m.group(1); assert m is not None
             loop_var=""
             unpack = False
             if loop_var_raw.startswith("[") and loop_var_raw.endswith("]"):
@@ -156,13 +167,14 @@ class MatchBox:
                 loop_var = loop_var_raw
             loop_over = self.format_parameter(m.group(2))
             assert type(loop_over) is VariableValue
-            ParamChecker.EnsureIntegrety((loop_over, LanTypes.array))
+            ParamChecker.EnsureIntegrety((loop_over, LanType(LanScaffold.array)))
             loop_do_str:str = m.group(3)
-            loop_funct = LanFunction("ForLoop", "nil", loop_var, loop_do_str)
+            loop_var_dict:dict[str,LanType] = {}
+            loop_funct = LanFunction("ForLoop", LanType.nil(), LanType.make_param_type_dict(loop_var), loop_do_str)
             assert type(loop_over.value) is list
             if unpack:
                 for item in loop_over.value: 
-                    ParamChecker.EnsureIntegrety((item, LanTypes.array))
+                    ParamChecker.EnsureIntegrety((item, LanType(LanScaffold.array)))
                     assert type(item.value) is list[VariableValue]
                     _ = loop_funct.execute(self, item.value, True)
             else:
@@ -175,7 +187,7 @@ class MatchBox:
         def handle(cls, self, m):
             while_condition = m.group(1).strip()
             while_do_str = m.group(2).strip()
-            while_loop_funct = LanFunction("WhileLoop", "nil", "", while_do_str)
+            while_loop_funct = LanFunction("WhileLoop", LanType.nil(), {}, while_do_str)
             vparam = self.format_parameter(while_condition); assert type(vparam) is VariableValue
             while vparam.value:
                 try:
@@ -200,7 +212,7 @@ class MatchBox:
         @classmethod
         def handle(cls, self, m):
             self.echo("Break Called")
-            return VariableValue(LanTypes.BREAK, None)
+            raise LanErrors.Break()
 
 # Main Mylange Class
 class MylangeInterpreter:
@@ -253,7 +265,7 @@ class MylangeInterpreter:
 
     def interpret_logic(self, string:str, overrideClean:bool=False) -> VariableValue:
         lines:list[str] = self.make_chucks(string, overrideClean, self.StartBlockCacheNumber)
-        Return:VariableValue = VariableValue(LanTypes.nil, None); matched:bool = False
+        Return:VariableValue = VariableValue(LanType.nil(), None); matched:bool = False
         for line in lines:
             self.echo(line, "MyInLoop")
             # Match the type of line
@@ -262,7 +274,7 @@ class MylangeInterpreter:
                 if type(result) is VariableValue:
                     matched = True
                     self.LineNumber += 1
-                    if (result.typeid != LanTypes.nil) or (result.typeid == LanTypes.BREAK):
+                    if (result.Type != LanScaffold.nil):
                         Return = result
                         break
                     elif matched:
@@ -312,11 +324,11 @@ class MylangeInterpreter:
         # Lambda #
         elif ActualRegex.LambdaStatement.value.search(part):
             m = ActualRegex.LambdaStatement.value.match(part); assert m is not None
-            returnType = m.group(1)
-            paramString = m.group(2)
+            returnType = LanType.get_type_from_typestr(m.group(1))
+            paramDict = LanType.make_param_type_dict(m.group(2))
             blockCache = self.CleanCodeCache[m.group(3)]
             self.echo("Casted to Lambda function")
-            Return = LanFunction("lambda", returnType, paramString, blockCache)
+            Return = LanFunction("lambda", returnType, paramDict, blockCache)
         # New Object from Class #
         elif ActualRegex.NewClassObjectStatement.value.search(part):
             self.echo("Thinking of New Class Object")
@@ -328,10 +340,10 @@ class MylangeInterpreter:
         # Cached #
         elif ActualRegex.CachedString.value.search(part):
             self.echo("Casted to Cached String", anoyance=2)
-            Return = VariableValue(LanTypes.string, self.CleanCodeCache[part][1:-1])
+            Return = VariableValue(LanType.string(), self.CleanCodeCache[part][1:-1])
         elif ActualRegex.CachedChar.value.search(part):
             self.echo("Casted to Cached Char", anoyance=2)
-            Return = VariableValue(LanTypes.character, self.CleanCodeCache[part][1:-1])
+            Return = VariableValue(LanType.char(), self.CleanCodeCache[part][1:-1])
         elif part.startswith("@") and ActualRegex.VariableStructure.value.search(part[1:]):
             self.echo("Casted to Copytrace of variable.")
             ogvar = self.Booker.get(part[1:])
@@ -395,18 +407,18 @@ class MylangeInterpreter:
         # Create Virtual Workspace
         Return:VariableValue|LanFunction|None = None
         self.echo(f"Working chain -{chainIndex}-: {methodName}; {methodParameters}")
-        if (base != None) and (base.typeid == LanTypes.casting):
+        if (base != None) and (base.Type == LanScaffold.casting):
             self.echo("Accessing Casting method")
             b = base.value; assert type(b) is LanClass
             Return = b.do_method(methodName, methodParameters)
-        elif (RandomTypeConversions.convert(methodName, self).typeid != LanTypes.nil) and chainIndex == 0:
+        elif (RandomTypeConversions.convert(methodName, self).Type != LanScaffold.nil) and chainIndex == 0:
             # A Random Type Instance, at the base
             Return = RandomTypeConversions.convert(methodName, self)
         elif (MylangeBuiltinFunctions.is_builtin([methodName])) and chainIndex == 0:
             # Mylange base function
             f = MylangeBuiltinFunctions.get_method([methodName]); assert f is not None
             Return = f(self.Booker, methodParameters)
-        elif isinstance(base, VariableValue) and (VariableTypeMethods.is_applitable(base.typeid, methodName)):
+        elif isinstance(base, VariableValue) and (VariableTypeMethods.is_applitable(base.Type.TypeNum, methodName)):
             # Mylange type base method
             Return = VariableTypeMethods.fire_variable_method(self, methodName, base, methodParameters)
         elif (methodName in self.Booker.FunctionRegistry.keys()) and chainIndex == 0:
@@ -417,7 +429,7 @@ class MylangeInterpreter:
             raise NotImplementedError()
         elif (self.get_cached_reference(methodName) != None) and chainIndex == 0:
             # A Random Type Instance, but cached
-            Return = VariableValue(LanTypes.string, self.get_cached_reference(methodName))
+            Return = VariableValue(LanType.string(), self.get_cached_reference(methodName))
         elif (self.Booker.find(methodName)) and chainIndex == 0:
             # Variable, most likely as a chain base
             Return = self.Booker.get(methodName)
@@ -549,7 +561,7 @@ class CodeCleaner:
     BlockEndings = [')', ']', '}']
 
     @staticmethod
-    def split_top_level_commas(s, comma=',') -> list[str]:
+    def split_top_level_commas(s, comma=',', additionalBrackets:list[tuple[str,str]]=[]) -> list[str]:
         result = []
         depth = 0
         current = []
@@ -559,9 +571,9 @@ class CodeCleaner:
                 result.append(''.join(current))
                 current = []
             else:
-                if char in CodeCleaner.BlockBeginngings:
+                if char in CodeCleaner.BlockBeginngings + [a[0] for a in additionalBrackets]:
                     depth += 1
-                elif char in CodeCleaner.BlockEndings:
+                elif char in CodeCleaner.BlockEndings + [a[1] for a in additionalBrackets]:
                     depth -= 1
                 current.append(char)
 
@@ -574,5 +586,5 @@ class CodeCleaner:
 class MylangeClassEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, VariableValue):
-            return {"typeid": o.typeid, "value": o.value}
+            return {"typeid": str(o.Type), "value": o.value}
         return json.JSONEncoder.default(self, o)

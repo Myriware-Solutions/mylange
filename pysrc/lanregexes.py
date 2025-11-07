@@ -10,7 +10,8 @@ class ActualRegex(Enum):
     Redefinitions = re.compile(r"^#!(.*)", flags=re.UNICODE)
     # Variables
     VariableStructure = re.compile(VariableStructureRaw, flags=re.UNICODE)
-    VariableDecleration = re.compile(r"^(.*) *([a-zA-Z]+) +(\w+) *=(>+) *(.*) *", flags=re.UNICODE)
+    #VariableDecleration = re.compile(r"^(.*) *([a-zA-Z]+) +(\w+) *=(>+) *(.*) *", flags=re.UNICODE)
+    VariableDecleration = re.compile(r"^\s*([a-zA-Z<>,|\s]+) +(\w+) *=(>+) *(.*) *", flags=re.UNICODE)
     VariableRedeclaration = re.compile(r"^(\w*)([\[\]:\w]+)? *=> *(.*) *$", flags=re.UNICODE)
     # Functions
     FunctionStatement = re.compile(r"def +(\w+) +(\w+) *\((.*)\) *as +(.*)", flags=re.UNICODE)

@@ -3,7 +3,7 @@ import re
 import copy
 from enum import IntEnum
 
-from lantypes import LanTypes, VariableValue, RandomTypeConversions
+from lantypes import LanType, LanScaffold, VariableValue, RandomTypeConversions
 from lanerrors import LanErrors
 from lanregexes import ActualRegex
 
@@ -15,14 +15,13 @@ if typing.TYPE_CHECKING:
 # =========== #
 class LanFunction:
     Name:str
-    ReturnType:int
-    Parameters:dict[str,int]
+    ReturnType:LanType
+    Parameters:dict[str, LanType]
     Code:str
-    def __init__(self, fName:str, fReturnType:str, fParamString:str|dict[str,int], fCode:str):
-        if type(fParamString) is not str: assert type(fParamString) is dict[str,int]; self.Parameters = fParamString
-        else: self.Parameters = self.CreateParamList(fParamString)
+    def __init__(self, fName:str, fReturnType:LanType, fParamStruct:dict[str, LanType], fCode:str):
+        self.Parameters = fParamStruct
         self.Name = fName
-        self.ReturnType = LanTypes.from_string(fReturnType)
+        self.ReturnType = fReturnType
         self.Code = fCode
     
     def execute(self, parent:'MylangeInterpreter', params:list[VariableValue], includeMemory:bool=False, objectMethodMaster:'LanClass|None'=None) -> VariableValue:
@@ -39,7 +38,8 @@ class LanFunction:
         if len(params) != len(self.Parameters):
             raise Exception(f"Length of Given and Expected Parameters do not Match: given {len(params)}, expected {len(self.Parameters)}")
         for i, param in enumerate(self.Parameters.items()):
-            if (param[1] != LanTypes.dynamic) and (params[i].typeid != param[1]): raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].typeid}")
+            if (param[1] != LanScaffold.dynamic) and (params[i].Type != param[1]): 
+                raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].Type}")
             container.Booker.set(param[0], params[i])
         Return = container.interpret(self.Code, True, objectMethodMaster)
         assert Return is not None
@@ -47,18 +47,8 @@ class LanFunction:
         if includeMemory: 
             for key in list(parent.Booker.Registry.keys()):
                 if key not in old_mem_keys: del parent.Booker.Registry[key]
-        if (self.ReturnType != LanTypes.dynamic) and (Return.typeid != self.ReturnType):
+        if (self.ReturnType != LanScaffold.dynamic) and (Return.Type != self.ReturnType):
             raise LanErrors.WrongTypeExpectationError("Function is trying to return wrong value type.")
-        return Return
-    
-    @staticmethod
-    def CreateParamList(paramString:str) -> dict[str,int]:
-        Return = {}
-        #TODO: Move self to regex file
-        reg = r"(\w+) +(\w+)(?: ?, ?)?"
-        m = re.findall(reg, paramString)
-        for set in m:
-            Return[set[2]] = LanTypes.from_string(set[1])
         return Return
 
 class AttributeAccessabilities(IntEnum):
@@ -84,6 +74,7 @@ class LanClass:
     def __str__(self):
         return self.Name
     def __init__(self, name:str, codeBody:str, parent:'MylangeInterpreter'):
+        from interpreter import CodeCleaner
         # Setup defults
         self.Name = name
         self.Methods = {}; self.Properties = {}
@@ -101,7 +92,7 @@ class LanClass:
             assert property_str is not None
             parent.echo(f"[Classy] Working on line: {property_str.group(0)}")
             accessability = AttributeAccessabilities[property_str.group(1)]
-            p_typeid = LanTypes.from_string(property_str.group(2))
+            p_typeid = LanType.get_type_from_typestr(property_str.group(2))
             p_name = property_str.group(3)
             p_init = RandomTypeConversions.convert(property_str.group(4), parent) if (property_str.group(4)) else VariableValue(p_typeid, None)
             self.set_property(accessability, p_name, p_init)
@@ -109,8 +100,14 @@ class LanClass:
         for method_str in method_strs:
             assert method_str is not None
             accessability = AttributeAccessabilities[method_str.group(1)]
-            init_param_str = ",".join(["set self"] + method_str.group(4).split(','))
-            funct = LanFunction(method_str.group(3), method_str.group(2), init_param_str, parent.CleanCodeCache[method_str.group(5)])
+            method_params:dict[str, LanType] = { "self": LanType(LanScaffold.set) }
+            for method_param_str in CodeCleaner.split_top_level_commas(method_str.group(4)):
+                sections = CodeCleaner.split_top_level_commas(method_param_str, " ")
+                assert len(sections) == 2
+                method_params[sections[1]] = LanType.get_type_from_typestr(sections[0])
+            funct = LanFunction(method_str.group(3), 
+                LanType.get_type_from_typestr(method_str.group(2)),
+                method_params, parent.CleanCodeCache[method_str.group(5)])
             self.set_method(accessability, method_str.group(3), funct)
     
     def set_property(self, accessability:AttributeAccessabilities, name:str, value:VariableValue):
@@ -132,11 +129,11 @@ class LanClass:
     def create(self, args):
         object_copy = copy.deepcopy(self)
         object_copy.do_method("constructor", args)
-        return VariableValue(LanTypes.casting, object_copy)
+        return VariableValue(LanType(LanScaffold.casting), object_copy)
     
     def props_to_set(self) -> VariableValue:
         full_properties = self.Properties | self.PrivateProperties
-        return VariableValue(LanTypes.set, full_properties)
+        return VariableValue(LanType(LanScaffold.set), full_properties)
     
     def do_method(self, methodName:str, args:list[VariableValue]) -> VariableValue:
         full_parameters = [self.props_to_set()] + args

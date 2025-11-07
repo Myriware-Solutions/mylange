@@ -2,7 +2,7 @@
 import re, os, sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
-from lantypes import LanTypes
+from lantypes import LanType, LanScaffold
 from importlib.metadata import version
 # Vars
 
@@ -27,6 +27,17 @@ def no_more_indent(levels:dict[str, int]) -> bool:
     for val in levels.values():
         if val != 0: return False
     return True
+
+HELP_MENU = """*help: this menu.
+*clear: clears the screen.
+*echoes: Enable Mylange Echoes (debugging purposes).
+*err: Print the full log of a previous error.
+return 0: exits the program.
+"""
+
+def ERRNO_PROMPT(amount:int) -> str:
+    return str("errno "*AnsiColor.BLUE) + f"[{amount}]" + str(":"*AnsiColor.BLUE)
+
 
 # Entry point for using the CLI
 linear:bool=False
@@ -74,11 +85,20 @@ else:
                     case "*echoes":
                         mi.enable_echos()
                     case "*err":
-                        err_in = input(f"errno [{len(errors)}]: ")
-                        print(errors[int(err_in)])
+                        try:
+                            err_in = int(input(ERRNO_PROMPT(len(errors))).strip())
+                            print(errors[int(err_in)])
+                        except ValueError:
+                            print("Please use numerical input (0-9)!"*AnsiColor.YELLOW)
+                        except IndexError:
+                            print("Index is outside the error range!"*AnsiColor.YELLOW)
+                    case "*help":
+                        print(HELP_MENU)
                     case _:
-                        res = mi.interpret(input_str); assert res is not None
-                        if (res.typeid == LanTypes.integer) and (res.value == 0):
+                        res = mi.interpret(input_str)
+                        if res is None:
+                            print("This code snippet does not work. Try running '*help'."*AnsiColor.YELLOW)
+                        elif (res.Type == LanScaffold.integer) and (res.value == 0):
                             running = False
                 input_str = ""
             else:
@@ -86,6 +106,7 @@ else:
         except KeyboardInterrupt:
             running = False
         except Exception as e:
+            raise e
             print(str(e.with_traceback(None))*AnsiColor.RED)
             errors.append(e)
             input_str = ""
