@@ -3,7 +3,7 @@
 import sys, json, re
 # Libraries #
 # Local #
-from lantypes import VariableValue, RandomTypeConversions, LanTypes
+from lantypes import VariableValue, RandomTypeConversions, LanType, LanScaffold
 from interpreter import CodeCleaner, MylangeClassEncoder, MylangeInterpreter
 from interface import AnsiColor
 ### CODE ###
@@ -79,13 +79,13 @@ class TableSpeak:
                     if self.Header.KeysRow is not None:
                         row.append(col_str)
                     else:
-                        var=mi.format_parameter(col_str);assert type(var) is VariableValue
+                        var = mi.format_parameter(col_str); assert type(var) is VariableValue
                         row.append(var)
-                elif (self.Header.Schema[j] == -1) or (i == self.Header.KeysRow): row.append(col_str)
+                elif ((type(self.Header.Schema[j]) is not LanType) and (self.Header.Schema[j] == -1)) or (i == self.Header.KeysRow): row.append(col_str)
                 else:
                     var=mi.format_parameter(col_str)
                     assert type(var) == VariableValue
-                    assert var.typeid == self.Header.Schema[j] # Make sure the value makes sense with the schema.
+                    assert var.Type == self.Header.Schema[j] # Make sure the value makes sense with the schema.
                     row.append(var)
             matrix.append(row)
         # Then, the specific cases can be processed.
@@ -177,7 +177,7 @@ class TaspHeaderOptions:
     Mode:int
     Cols:list[str]|None
     Direction:int
-    Schema:list[int|LanTypes]|None
+    Schema:list[LanType|int]|None
     ColKey:int|None
     RowKey:int|None
     KeysRow:int|None
@@ -235,7 +235,8 @@ class TaspHeaderOptions:
                                 if self.Mode not in [2,4]: raise Exception("Should not be defining <key> for non-complex objects.")
                                 self.RowKey = i
                                 self.Schema.append(-1)
-                            else: self.Schema.append(LanTypes.from_string(struct.strip()))
+                            else:
+                                self.Schema.append(LanType.get_type_from_typestr(struct.strip()))
                     case 'keys-row':
                         if self.Mode not in [2,3,4]: raise Exception(f"Should not be defining keys-row for this mode: {self.Mode}")
                         self.KeysRow=int(opt[1])
@@ -244,7 +245,7 @@ class TaspHeaderOptions:
         lines = [
             f"Mode: {self.ModeOptions[self.Mode][1]}",
             f"Direction: {("Column" if self.Direction == 0 else "Row")}",
-            f"Schema: {(", ".join([("<Key> " if i == self.RowKey else "") + LanTypes.to_string_name(item) for i, item in enumerate (self.Schema or [])]))}",
+            f"Schema: {(", ".join([("<Key> " if i == self.RowKey else "") + str(item) for i, item in enumerate (self.Schema or [])]))}",
             f"Keys-Row: {self.KeysRow}",
             f"Row-Key: {self.RowKey}",
             f"Column-Key: {self.ColKey}"
