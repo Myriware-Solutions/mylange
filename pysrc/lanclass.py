@@ -6,7 +6,6 @@ from enum import IntEnum
 from lantypes import LanType, LanScaffold, VariableValue, RandomTypeConversions
 from lanerrors import LanErrors
 from lanregexes import ActualRegex
-from interpreter import CodeCleaner
 
 import typing
 if typing.TYPE_CHECKING:
@@ -75,6 +74,7 @@ class LanClass:
     def __str__(self):
         return self.Name
     def __init__(self, name:str, codeBody:str, parent:'MylangeInterpreter'):
+        from interpreter import CodeCleaner
         # Setup defults
         self.Name = name
         self.Methods = {}; self.Properties = {}

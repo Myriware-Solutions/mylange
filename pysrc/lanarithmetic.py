@@ -3,42 +3,43 @@ if TYPE_CHECKING:
     from interpreter import MylangeInterpreter
 # IMPORTS
 from lanregexes import ActualRegex
-from lantypes import LanTypes, RandomTypeConversions, ParamChecker
+from lantypes import RandomTypeConversions, ParamChecker, LanType, LanScaffold
 from lantypes import VariableValue
 
 import typing
 if typing.TYPE_CHECKING:
     from lanclass import LanFunction
 
-NIL_RETURN:VariableValue = VariableValue(LanTypes.nil, None)
+NIL_RETURN:VariableValue = VariableValue(LanType.nil(), None)
 # Handles Arithmetics of All kinds
 class LanArithmetics:
     @staticmethod
     def withInts(a:VariableValue, b:VariableValue, callback) -> VariableValue:
-        ParamChecker.EnsureIntegrety((a, LanTypes.integer), (b, LanTypes.integer))
-        return VariableValue(LanTypes.integer, callback(a.value, b.value))
+        ParamChecker.EnsureIntegrety((a, LanType.int()), (b, LanType.int()))
+        return VariableValue(LanType.int(), callback(a.value, b.value))
     
     @staticmethod
     def concentrateStrings(a:VariableValue, b:VariableValue) -> VariableValue:
-        types = ParamChecker.GetTypesOfParameters(a, b)
+        full_types = ParamChecker.GetTypesOfParameters(a, b)
+        types = [t.TypeNum for t in full_types]
         match types:
-            case [LanTypes.string, LanTypes.string]:
+            case [LanScaffold.string, LanScaffold.string]:
                 assert type(a.value) is str; assert type(b.value) is str
-                return VariableValue(LanTypes.string, a.value + b.value)
-            case [LanTypes.string, LanTypes.integer]:
+                return VariableValue(LanType.string(), a.value + b.value)
+            case [LanScaffold.string, LanScaffold.integer]:
                 assert type(a.value) is str; assert type(b.value) is int
-                return VariableValue(LanTypes.string, a.value * b.value)
+                return VariableValue(LanType.string(), a.value * b.value)
             case _:
                 raise Exception("Cannot perform operations on these!")
             
     @staticmethod
     def booleanStatement(a:VariableValue, b:VariableValue, callback) -> VariableValue:
-        return VariableValue(LanTypes.boolean, callback(a.value, b.value))
+        return VariableValue(LanType.bool(), callback(a.value, b.value))
     
     @staticmethod
     def joinStatement(a:VariableValue, b:VariableValue, callback) -> VariableValue:
-        ParamChecker.EnsureIntegrety((a, LanTypes.boolean), (b, LanTypes.boolean))
-        return VariableValue(LanTypes.boolean, callback(a.value, b.value))
+        ParamChecker.EnsureIntegrety((a, LanType.bool()), (b, LanType.bool()))
+        return VariableValue(LanType.bool(), callback(a.value, b.value))
 
     LambdaOperations = {
         "+":  lambda a, b: LanArithmetics.withInts(a, b, (lambda a, b: a + b)),

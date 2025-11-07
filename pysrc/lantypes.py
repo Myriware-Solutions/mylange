@@ -1,8 +1,10 @@
 # IMPORTS
 from enum import IntEnum, Enum, unique
 from lanregexes import ActualRegex
-from interpreter import CodeCleaner
 import re
+from typing import Generic, TypeVar
+T = TypeVar("T")
+#type VariableValueLike = None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|'LanClass'
 
 import typing
 if typing.TYPE_CHECKING:
@@ -116,7 +118,7 @@ class LanScaffold(IntEnum):
     def from_string(cls, typestring:str) -> 'LanScaffold':
         for i, aliases in enumerate(cls.TypeNameArray()):
             if typestring in aliases: return LanScaffold(i)
-        raise Exception("Could not find type")
+        raise Exception(f"Could not find type: {typestring}")
 
     @classmethod
     def to_string_name(cls, typeid:int) -> str:
@@ -136,7 +138,7 @@ class LanScaffold(IntEnum):
             ["dynamic"]
         ]
     
-class LanType():
+class LanType:
     
     TypeNum:LanScaffold
     Archetype:'list[LanType]|None'
@@ -146,24 +148,34 @@ class LanType():
         self.Archetype = archetype
     
     def __eq__(self, other:object) -> bool:
-        
         if type(other) is LanType:
             if self.TypeNum.value != other.TypeNum.value: return False
             if (self.Archetype is None) and (other.Archetype is None): return True
-            assert self.Archetype is not None; assert other.Archetype is not None
-            if len(self.Archetype) != len(other.Archetype): return False
-            for i, archtypette in enumerate(self.Archetype):
-                if archtypette != other.Archetype[i]: return False
+            else: 
+                if (self.Archetype is None) and (other.Archetype is not None) or \
+                    (self.Archetype is not None) and (other.Archetype is None): return False
+                assert self.Archetype is not None; assert other.Archetype is not None
+                if len(self.Archetype) != len(other.Archetype): return False
+                for i, archtypette in enumerate(self.Archetype):
+                    if archtypette != other.Archetype[i]: return False
             return True
         elif type(other) is LanScaffold:
             return self.TypeNum.value == other.value
-        else: raise Exception("Cannot compare these types!")
+        else: raise Exception(f"Cannot compare these types! Expected {type(self)}, got {type(other)}")
     
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
     
+    def __contains__(self, item:object) -> bool:
+        if type(item) is not LanType: raise Exception(f"Cannot use that type: {type(item)}")
+        if not self.Archetype: return False
+        return item in self.Archetype
+    
     def __str__(self) -> str:
-        return f"{LanScaffold.TypeNameArray()[self.TypeNum]}" + (f"<{self.Archetype}>" if self.Archetype else "")
+        return f"{LanScaffold.TypeNameArray()[self.TypeNum][0]}" + (f"<{"|".join(str(g) for g in self.Archetype)}>" if self.Archetype else "")
+    
+    # def __repr__(self) -> str:
+    #     return self.__str__()
     
     # Static types that are always the same
     @staticmethod
@@ -181,22 +193,40 @@ class LanType():
     @staticmethod
     def string(): return LanType(LanScaffold.string)
     
+    @staticmethod
+    def array(): return LanType(LanScaffold.array)
+    
+    @staticmethod
+    def set(): return LanType(LanScaffold.set)
+    
     @classmethod
     def get_type_from_typestr(cls, string:str) -> 'LanType':
-        reg = re.compile(r"(\w+)\s?(?:<([\w<>\s]+)>)?")
+        reg = re.compile(r"(\w+)\s?(?:<([\w<>\s|,]+)>)?")
         m = reg.match(string); assert m is not None
         base = LanScaffold.from_string(m.group(1))
         if m.group(2):
+            from interpreter import CodeCleaner
             archetypette_strs = CodeCleaner.split_top_level_commas(m.group(2))
             l:list[LanType] = []
             for archetypette_str in archetypette_strs:
                 l.append(cls.get_type_from_typestr(archetypette_str))
             return LanType(base, l)
         else: return LanType(base)
+        
+    @classmethod
+    def make_param_type_dict(cls, string:str) -> dict[str, 'LanType']:
+        reg = re.compile(r"(?:([\w<>\s|,]+))?\s+(\w+)")
+        Return:dict[str, LanType] = {}
+        from interpreter import CodeCleaner
+        entries = CodeCleaner.split_top_level_commas(string, additionalBrackets=[('<','>')])
+        for entry in entries:
+            m = reg.match(entry); assert m is not None
+            Return[m.group(2)] = cls.get_type_from_typestr(m.group(1))
+        return Return
 
 class ParamChecker:
     @staticmethod
-    def EnsureIntegrety(*params:tuple['VariableValue', int]) -> bool:
+    def EnsureIntegrety(*params:tuple['VariableValue', LanType]) -> bool:
         # for param in params:
         #     if param[1] != param[0].typeid: 
         #         raise Exception(f"[Type Validation] Type mismatch: Expected {LanScaffold.TypeNameArray()[param[1]]}, got {LanScaffold.TypeNameArray()[param[0].typeid]}.")
@@ -209,38 +239,39 @@ class ParamChecker:
             Return.append(param.Type)
         return Return
 
-class VariableValue:
-    type VariableValueLike = None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|'LanClass'
-    Type:LanType
-    def __init__(self, typeStruct:LanType, value:VariableValueLike=None):
-        self.Type = typeStruct
-        self.value:VariableValue.VariableValueLike = None
-        if (value != None): self.value = value
 
-    def __str__(self):
+
+class VariableValue(Generic[T]):
+    Type:LanType
+    def __init__(self, typeStruct:LanType, value:T=None):
+        self.Type = typeStruct
+        self.value = value
+
+    def __str__(self, withPrefix:bool=False):
+        Return = ""
         match (self.Type.TypeNum):
             case LanScaffold.nil:
-                return 'nil'
+                Return = 'nil'
             case LanScaffold.boolean:
-                return f"{self.value}".lower()
+                Return= f"{self.value}".lower()
             case LanScaffold.integer:
-                return f"{self.value}"
+                Return= f"{self.value}"
             case LanScaffold.character:
-                return f"'{self.value}'"
+                Return= f"'{self.value}'"
             case LanScaffold.string:
-                return f'"{self.value}"'
+                Return= f'"{self.value}"'
             case LanScaffold.array:
                 assert type(self.value) is list
                 larray = [f"{item}" for item in self.value]
-                return f"[{', '.join(larray)}]"
+                Return= f"[{', '.join(larray)}]"
             case LanScaffold.set:
                 assert type(self.value) is dict
                 lset = [f"{k}:{v}" for k, v in self.value.items()]
-                return f"({', '.join(lset)})"
-        return f"<{self.value}@{self.Type}>"
-    
-    def __repr__(self) -> str:
-        return self.__str__()
+                Return= f"({', '.join(lset)})"
+            case _:
+                Return= f"<{self.value}@{self.Type}>"
+        if withPrefix: return f"{str(self.Type)} {Return}"
+        return Return
     
     def isof(self, type:LanType) -> bool:
         return self.Type == type
@@ -257,11 +288,11 @@ class VariableValue:
                 return self.__str__()
             
     def colon_access(self, index:str) -> 'VariableValue':
-        ParamChecker.EnsureIntegrety((self, LanScaffold.set))
+        ParamChecker.EnsureIntegrety((self, LanType(LanScaffold.set)))
         assert type(self.value) is dict
         return self.value[index]
 
     def bracket_access(self, index:int) -> 'VariableValue':
-        ParamChecker.EnsureIntegrety((self, LanScaffold.array))
+        ParamChecker.EnsureIntegrety((self, LanType(LanScaffold.array)))
         assert type(self.value) is list
         return self.value[index]
