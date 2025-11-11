@@ -57,6 +57,12 @@ if not linear:
         r = "Error"
         try:
             r = structure.interpret(code)
+            assert r is not None
+            if r.Type.TypeNum == LanScaffold.nil:
+                # Check to see if there is a Main class and method
+                if "Main" in structure.Booker._class_registry:
+                    if "main" in structure.Booker.GetClass("Main").Methods.keys():
+                        structure.interpret("Main.main();")
         except LanErrors.Break:
             print(f"Program Ended with Error"*AnsiColor.RED)
         finally:

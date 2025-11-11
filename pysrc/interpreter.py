@@ -456,6 +456,9 @@ class MylangeInterpreter:
         elif (methodName in self.Booker._class_registry.keys()) and chainIndex == 0:
             #TODO: User-defined static method
             raise NotImplementedError()
+        
+        
+        
         elif (self.get_cached_reference(methodName) != None) and chainIndex == 0:
             # A Random Type Instance, but cached
             Return = VariableValue(LanType.string(), self.get_cached_reference(methodName))

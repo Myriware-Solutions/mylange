@@ -2,7 +2,7 @@ from ../examples/import import Person;
 
 class Main has {
 
-    public int Main() as {
+    public def int main() as {
         Person p => new Person("Anthony", "S");
         Person p2 => new Person("Zach", "D");
 
