@@ -24,9 +24,9 @@ class LanErrors:
 
     # Legit Errors
     class MemoryMissingError(MylangeError):
-        def __init__(self, msg="Could not find variable by name.", value=None):
+        def __init__(self, msg="MemoryMissingError-undefined_error_info", value=None):
             self.value = value
-            self.message = msg
+            self.message = f"Could not find variable by name: '{msg}'"
             super().__init__(self.message)
 
     class NotIndexableError(MylangeError):
@@ -69,4 +69,10 @@ class LanErrors:
         def __init__(self, msg="DuplicatePropertyError-undefined_error_info", value=None):
             self.value = value
             self.message = f"Trying to create another property with the same name: {msg}"
+            super().__init__(self.message)
+            
+    class UnknownTypeError(MylangeError):
+        def __init__(self, msg:str="UnknownTypeError-undefined_error_info", value=None) -> None:
+            self.value = value
+            self.message = f"Unknown or undefined type used: {msg}"
             super().__init__(self.message)

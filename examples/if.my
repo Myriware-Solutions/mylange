@@ -1,5 +1,5 @@
 string NumberString => System.IO.Input("NUMBER> ");
-integer number => NumberString.toInteger();
+int number => NumberString.toInteger();
 print("Your Number is: " .. number.toString());
 
 if (number < 5) then {

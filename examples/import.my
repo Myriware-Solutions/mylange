@@ -6,6 +6,7 @@ class Person has {
 
     public def nil constructor(string first, string last) as {
         print("constructor called!");
+        System.IO.DumpCache();
         this:First => first;
         this:Last => last;
     };
@@ -16,9 +17,9 @@ class Person has {
     };
 
     public def string :(string index) as {
-        return "I am a person, " .. index;
+        return this.at(index);
     };
-
+    
     public def string [](integer index) as {
         return "HELLO" .. index;
     };

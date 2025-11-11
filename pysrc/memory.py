@@ -13,15 +13,48 @@ class VarQuerryParts(StrEnum):
 # Runtime Memory Manager, aka Booker
 class MemoryBooker:
     Registry:dict[str, VariableValue]
-    FunctionRegistry:dict[str, LanFunction]
-    ClassRegistry:dict[str, LanClass]
+    _function_registry:dict[int, LanFunction]
+    RegisteredFunctionNames:list[str]
+    _class_registry:dict[str, LanClass]
 
     def __init__(self):
         from interpreter import LanFunction
         from lanclass import LanClass
         self.Registry = {}
-        self.FunctionRegistry = {}
-        self.ClassRegistry = {}
+        self._function_registry = {}
+        self.RegisteredFunctionNames = []
+        self._class_registry = {}
+        
+    @staticmethod
+    def _get_function_hash(name:str, paramTypes:list[LanType]) -> int:
+        return hash(tuple([name] + paramTypes))
+    
+    def SetFunction(self, name:str, funct:LanFunction) -> int:
+        """Sets a function to the given name and function.
+
+        Args:
+            name (str): name of the function.
+            funct (LanFunction): Object containing the function's data.
+
+        Returns:
+            int: Hash of the function, used in the registery.
+        """
+        if name not in self.RegisteredFunctionNames: self.RegisteredFunctionNames.append(name)
+        tup = tuple([name] + list(funct.Parameters.values()))
+        function_hash = hash(tup)
+        self._function_registry[function_hash] = funct
+        return function_hash
+    
+    def GetFunction(self, name:str, paramTypes:list[LanType]) -> LanFunction:
+        function_id = self._get_function_hash(name, paramTypes)
+        return self._function_registry[function_id]
+    
+    def SetClass(self, name:str, classStruct:LanClass) -> None:
+        if name in self._class_registry: raise LanErrors.DuplicateMethodError(f"Class:{name}")
+        self._class_registry[name] = classStruct
+    
+    def GetClass(self, name:str) -> LanClass:
+        return self._class_registry[name]
 
     def set(self, varName:str, value:VariableValue, *flags:list[int]):
         self.Registry[varName] = value

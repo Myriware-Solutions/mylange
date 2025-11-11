@@ -34,6 +34,7 @@ class LanFunction:
             if includeMemory: container.make_child_block(parent, True)
             else: container.make_child_block(parent, False)
             if parent.EchosEnables: container.enable_echos()
+        container.echo(f"Executing LanFunction: {self.Name}")
         # Add parameters
         if len(params) != len(self.Parameters):
             raise Exception(f"Length of Given and Expected Parameters do not Match: given {len(params)}, expected {len(self.Parameters)}")
@@ -42,7 +43,9 @@ class LanFunction:
                 raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].Type}")
             container.Booker.set(param[0], params[i])
         Return = container.interpret(self.Code, True, objectMethodMaster)
-        assert Return is not None
+        if Return is None:
+            Return = VariableValue(LanType.nil())
+        
         # Clear New Memory values, keeping old or altered ones
         if includeMemory: 
             for key in list(parent.Booker.Registry.keys()):
@@ -100,10 +103,10 @@ class LanClass:
         for method_str in method_strs:
             assert method_str is not None
             accessability = AttributeAccessabilities[method_str.group(1)]
-            method_params:dict[str, LanType] = { "self": LanType(LanScaffold.set) }
-            for method_param_str in CodeCleaner.split_top_level_commas(method_str.group(4)):
-                sections = CodeCleaner.split_top_level_commas(method_param_str, " ")
-                assert len(sections) == 2
+            method_params:dict[str, LanType] = { "this": LanType(LanScaffold.set) }
+            for method_param_str in CodeCleaner.split_top_level_commas(method_str.group(4), stripReturns=True):
+                sections = CodeCleaner.split_top_level_commas(method_param_str, " ", stripReturns=True)
+                if len(sections) != 2: raise Exception(f"Expected two parts from '{method_param_str}'")
                 method_params[sections[1]] = LanType.get_type_from_typestr(sections[0])
             funct = LanFunction(method_str.group(3), 
                 LanType.get_type_from_typestr(method_str.group(2)),
@@ -137,7 +140,9 @@ class LanClass:
     
     def do_method(self, methodName:str, args:list[VariableValue]) -> VariableValue:
         full_parameters = [self.props_to_set()] + args
-        return self.Methods[methodName].execute(self.Parent, full_parameters, False, self)
+        Return = self.Methods[methodName].execute(self.Parent, full_parameters, False, self)
+        print("Doing method: ", full_parameters)
+        return Return if Return is not None else VariableValue(LanType.nil())
     
     def do_private_method(self, methodName, args) -> VariableValue:
         full_parameters = [self.props_to_set()] + args

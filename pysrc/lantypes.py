@@ -3,6 +3,9 @@ from enum import IntEnum, Enum, unique
 from lanregexes import ActualRegex
 import re
 from typing import Generic, TypeVar
+
+from lanerrors import LanErrors
+
 T = TypeVar("T")
 #type VariableValueLike = None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|'LanClass'
 
@@ -118,7 +121,7 @@ class LanScaffold(IntEnum):
     def from_string(cls, typestring:str) -> 'LanScaffold':
         for i, aliases in enumerate(cls.TypeNameArray()):
             if typestring in aliases: return LanScaffold(i)
-        raise Exception(f"Could not find type: {typestring}")
+        raise LanErrors.UnknownTypeError(typestring)
 
     @classmethod
     def to_string_name(cls, typeid:int) -> str:
@@ -174,6 +177,9 @@ class LanType:
     def __str__(self) -> str:
         return f"{LanScaffold.TypeNameArray()[self.TypeNum][0]}" + (f"<{"|".join(str(g) for g in self.Archetype)}>" if self.Archetype else "")
     
+    def __hash__(self) -> int:
+        return hash(tuple(item for item in (([self.TypeNum] + self.Archetype) if self.Archetype else [self.TypeNum])))
+    
     # def __repr__(self) -> str:
     #     return self.__str__()
     
@@ -203,7 +209,10 @@ class LanType:
     def get_type_from_typestr(cls, string:str) -> 'LanType':
         reg = re.compile(r"(\w+)\s?(?:<([\w<>\s|,]+)>)?")
         m = reg.match(string); assert m is not None
-        base = LanScaffold.from_string(m.group(1))
+        try: base = LanScaffold.from_string(m.group(1))
+        except LanErrors.UnknownTypeError:
+            # It did not find a Mylange class, but it could be user-defined
+            base = LanScaffold.casting
         if m.group(2):
             from interpreter import CodeCleaner
             archetypette_strs = CodeCleaner.split_top_level_commas(m.group(2))
@@ -212,15 +221,16 @@ class LanType:
                 l.append(cls.get_type_from_typestr(archetypette_str))
             return LanType(base, l)
         else: return LanType(base)
-        
+    
     @classmethod
     def make_param_type_dict(cls, string:str) -> dict[str, 'LanType']:
-        reg = re.compile(r"(?:([\w<>\s|,]+))?\s+(\w+)")
+        #reg = re.compile(r"(?:([\w<>\s|,]+))?\s+(\w+)")
+        reg = re.compile(r"([\w ]+[\w<>,| ]+) +(\w+)", flags=re.UNICODE)
         Return:dict[str, LanType] = {}
         from interpreter import CodeCleaner
         entries = CodeCleaner.split_top_level_commas(string, additionalBrackets=[('<','>')])
         for entry in entries:
-            m = reg.match(entry); assert m is not None
+            m = reg.match(entry.strip()); assert m is not None
             Return[m.group(2)] = cls.get_type_from_typestr(m.group(1))
         return Return
 
@@ -272,6 +282,9 @@ class VariableValue(Generic[T]):
                 Return= f"<{self.value}@{self.Type}>"
         if withPrefix: return f"{str(self.Type)} {Return}"
         return Return
+    
+    def __repr__(self) -> str:
+        return self.__str__()
     
     def isof(self, type:LanType) -> bool:
         return self.Type == type

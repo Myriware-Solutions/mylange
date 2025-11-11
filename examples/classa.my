@@ -1,0 +1,5 @@
+from ../examples/import import Person;
+
+Person p => new Person("Anthony", "Smith");
+
+print(p:First);

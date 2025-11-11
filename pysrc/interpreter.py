@@ -52,21 +52,19 @@ class MatchBox:
         def handle(cls, self, m):
             file_name:str = m.group(1) + FILE_EXT
             self.echo(f"Importing from {file_name}", "Importer")
-            function_bloc:str = m.group(2)
-            functions = [funct.strip() for funct in function_bloc.split(",")]
+            classes_block:str = m.group(2)
+            classes = [classes_block.strip() for funct in classes_block.split(",")]
             # Setup Vitual envirement
-            mi = MylangeInterpreter(f"Imports\\{m.group(1)}", startBlockCacheNumber=len([item for item in self.CleanCodeCache.keys() if item.startswith("0x")]))
-            mi.make_child_block(self, False)
+            mil = MylangeInterpreter(f"Imports\\{m.group(1)}")
+            if self.EchosEnables: mil.enable_echos()
+            
             with open(file_name, 'r') as imports_file:
-                mi.interpret(imports_file.read())
-                for funct_name in functions:
-                    self.echo(f"Processing import request: {funct_name}")
-                    if (funct_name in mi.Booker.FunctionRegistry):
-                        self.Booker.FunctionRegistry[funct_name] = mi.Booker.FunctionRegistry[funct_name]
-                    elif (funct_name in mi.Booker.ClassRegistry):
-                        self.Booker.ClassRegistry[funct_name] = mi.Booker.ClassRegistry[funct_name]
+                mil.interpret(imports_file.read())
+                for class_name in classes:
+                    self.echo(f"Processing import request: {class_name}")
+                    if class_name in mil.Booker._class_registry.keys():
+                        self.Booker.SetClass(class_name, mil.Booker.GetClass(class_name))
                     else: raise LanErrors.MissingImportError()
-                self.CleanCodeCache.update(mi.CleanCodeCache)
             return NIL_RETURN
     class VariableDecalaration(LineMatcher):
         pattern = ActualRegex.VariableDecleration.value
@@ -99,7 +97,7 @@ class MatchBox:
             varextention:str = m.group(2)
             newvalue:str = m.group(3)
             #print(varname, varextention, newvalue)
-            if not self.Booker.find(varname): raise LanErrors.MemoryMissingError()
+            if not self.Booker.find(varname): raise LanErrors.MemoryMissingError(varname)
             fullvarname:str = varname + (varextention if (varextention != None) else "")
             var = self.Booker.get(fullvarname)
             castedvalue = self.format_parameter(newvalue)
@@ -137,12 +135,15 @@ class MatchBox:
         @classmethod
         def handle(cls, self, m):
             return_type = LanType.get_type_from_typestr(m.group(1))
-            function_name:str = m.group(2)
+            function_name = m.group(2); assert type(function_name) is str
             function_parameters_string = m.group(3)
+            function_parameters = LanType.make_param_type_dict(function_parameters_string)
             function_code_string = m.group(4)
-            funct = LanFunction(function_name, return_type, function_parameters_string, function_code_string)
-            self.Booker.FunctionRegistry[function_name] = funct
-            self.echo(f"Registered function by name: {function_name}")
+            funct = LanFunction(function_name, return_type, function_parameters, function_code_string)
+            
+            f_id = self.Booker.SetFunction(function_name, funct)
+            
+            self.echo(f"Registered function by name: {function_name}, {f_id}")
             return NIL_RETURN
     class ClassDeclaration(LineMatcher):
         pattern = ActualRegex.ClassStatement.value 
@@ -151,7 +152,7 @@ class MatchBox:
             cls_name:str = m.group(1)
             cls_body:str = m.group(2)
             lan_cls = LanClass(cls_name, cls_body, self)
-            self.Booker.ClassRegistry[cls_name] = lan_cls
+            self.Booker.SetClass(cls_name, lan_cls)
             return NIL_RETURN
     class ForStatement(LineMatcher):
         pattern = ActualRegex.ForStatement.value
@@ -261,6 +262,7 @@ class MylangeInterpreter:
             raise LanErrors.Break()
         except LanErrors.MylangeError as exception:
             print(f"Fatal Error: {exception}"*AnsiColor.BRIGHT_RED)
+            if self.EchosEnables: raise exception
             return None
 
     def interpret_logic(self, string:str, overrideClean:bool=False) -> VariableValue:
@@ -292,7 +294,7 @@ class MylangeInterpreter:
             string = string.replace(f"#!{redecl}", '')
         clean_code, clean_code_cache = CodeCleaner.cleanup_chunk(string, overrideClean, starBlockCacheNumber)
         self.CleanCodeCache.update(clean_code_cache)
-        if (self.BlockTree == "Main") and self.EchosEnables:
+        if self.EchosEnables:
             mem_blocks:list[str] = [f"{k} -> {v}" for k, v in self.CleanCodeCache.items()]
             joined_mem = '\n'.join(mem_blocks)
             print(f"[Code Lines]\n{clean_code}\n[Memory Units]\n{joined_mem}"*AnsiColor.BLUE)
@@ -336,7 +338,7 @@ class MylangeInterpreter:
             cls_name = m.group(1)
             cls_args = self.format_parameter_list(m.group(2))
             self.echo(f"Casted to New Class Object <{cls_name}>", anoyance=2)
-            Return = self.Booker.ClassRegistry[cls_name].create(cls_args)
+            Return = self.Booker.GetClass(cls_name).create(cls_args)
         # Cached #
         elif ActualRegex.CachedString.value.search(part):
             self.echo("Casted to Cached String", anoyance=2)
@@ -350,14 +352,20 @@ class MylangeInterpreter:
             Return = copy.deepcopy(ogvar)
         # Variable by Name #
         elif ActualRegex.VariableStructure.value.search(part) and (part not in self.SpecialValueWords):
+            self.echo("Somethign is here: " + part)
             if self.Booker.find(part):
                 r = self.Booker.get(part)
                 self.echo(f"Casted to Variable: {r}", anoyance=2)
                 Return = r
             # Function #
-            elif part in self.Booker.FunctionRegistry.keys():
+            # TODO: This can no longer work soly off the name. It also need to 
+            # work of the types of things being passed into the function.
+            elif part in self.Booker.RegisteredFunctionNames:
                 self.echo("Casted to Function Name")
-                Return = self.Booker.FunctionRegistry[part]
+                
+                funct = None
+                
+                raise NotImplementedError("Still working on this one.")
             else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
         # Failsafe #
         else:
@@ -421,10 +429,19 @@ class MylangeInterpreter:
         elif isinstance(base, VariableValue) and (VariableTypeMethods.is_applitable(base.Type.TypeNum, methodName)):
             # Mylange type base method
             Return = VariableTypeMethods.fire_variable_method(self, methodName, base, methodParameters)
-        elif (methodName in self.Booker.FunctionRegistry.keys()) and chainIndex == 0:
+
+        
+
+        elif (methodName in self.Booker.RegisteredFunctionNames) and chainIndex == 0:
             # User-defined function
-            Return = self.Booker.FunctionRegistry[methodName].execute(self, methodParameters)
-        elif (methodName in self.Booker.ClassRegistry.keys()) and chainIndex == 0:
+            types = [item.Type for item in methodParameters]
+            funct = self.Booker.GetFunction(methodName, types)
+            Return = funct.execute(self, methodParameters)
+            
+            
+            
+            
+        elif (methodName in self.Booker._class_registry.keys()) and chainIndex == 0:
             #TODO: User-defined static method
             raise NotImplementedError()
         elif (self.get_cached_reference(methodName) != None) and chainIndex == 0:
@@ -561,8 +578,8 @@ class CodeCleaner:
     BlockEndings = [')', ']', '}']
 
     @staticmethod
-    def split_top_level_commas(s, comma=',', additionalBrackets:list[tuple[str,str]]=[]) -> list[str]:
-        result = []
+    def split_top_level_commas(s, comma=',', additionalBrackets:list[tuple[str,str]]=[], stripReturns:bool=False) -> list[str]:
+        result:list[str] = []
         depth = 0
         current = []
 
@@ -580,6 +597,9 @@ class CodeCleaner:
         if current:
             result.append(''.join(current))
 
+        if stripReturns:
+            for i, res in enumerate(result): result[i] = res.strip()
+        
         return result
 
 # Custom JSON Encoder

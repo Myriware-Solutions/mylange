@@ -43,3 +43,4 @@ class ActualRegex(Enum):
     GeneralArithmetics = re.compile(r"^(.*?) *([.+\-*\/]+) *(.*) *$", flags=re.UNICODE)
     # Set 
     SetInners = re.compile(r"\((?:\s*\w+\s*=>\s*.+,?)+\)", flags=re.UNICODE)
+

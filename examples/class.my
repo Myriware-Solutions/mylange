@@ -8,6 +8,11 @@ class Person has {
         print("constructor called!");
         this:First => first;
         this:Last => last;
+        print(this.GetWelcome());
+    };
+
+    private def str GetWelcome() as {
+        return "Hello world";
     };
 
     public def nil Greet() as {
@@ -15,9 +20,9 @@ class Person has {
         print(toprint.format(this:First, this:Last));
     };
 
-    private def string :(string index) as { return "I am a person, " .. index; };
+    private def string :(str index) as { return "I am a person, " .. index; };
     
-    private def string [](integer index) as {
+    private def string [](int index) as {
         return "HELLO" .. index;
     };
 };

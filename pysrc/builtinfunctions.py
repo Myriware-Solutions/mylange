@@ -51,8 +51,8 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     class Casting(MylangeBuiltinScaffold):
         @staticmethod
         def PrintoutDetails(booker:MemoryBooker, castingVariable:VariableValue, isNameOfType:VariableValue=VariableValue(LanType.bool(), False)) -> None:
-            assert type(castingVariable.value) is str
-            casting = booker.ClassRegistry[castingVariable.value] if (isNameOfType.value == True) else castingVariable.value
+            # assert type(castingVariable.value) is str
+            casting = booker.GetClass(castingVariable.value) if (isNameOfType.value == True) else castingVariable.value
             assert type(casting) is LanClass
             print("== System.IO.PrintoutDetails =="*AnsiColor.BRIGHT_BLUE)
             #:dict[str, dict[str, dict[str, VariableValue|LanFunction]]]
@@ -98,7 +98,7 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
             @staticmethod
             def DumpCache(booker:MemoryBooker) -> None:
                 print("== :System.IO.DumpCache =="*AnsiColor.BRIGHT_BLUE)
-                items = booker.Registry.items() | booker.FunctionRegistry.items() | booker.ClassRegistry.items()
+                items = booker.Registry.items() | booker._function_registry.items() | booker._class_registry.items()
                 for k, v in items:
                     match v:
                         case VariableValue():
