@@ -1,5 +1,21 @@
 from ../examples/import import Person;
 
-Person p => new Person("Anthony", "Smith");
+class Main has {
 
-print(p:First);
+    public int Main() as {
+        Person p => new Person("Anthony", "S");
+        Person p2 => new Person("Zach", "D");
+
+        print(p:First);
+
+        array<str> Return => [p:First, p:Last];
+        print(TypeOf(Return, true));
+
+        array<Person> ps => [p, p2];
+
+        array<Person> pf => ps.where(bool (Person pl) as { return pl:Last == "D"; });
+        print(pf);
+
+        return Return;
+    }
+}

@@ -81,6 +81,8 @@ class MemoryBooker:
                                 raise LanErrors.NotIndexableError("Could not find this Property on object. Is it or colon-method private?")
                     else:
                         assert type(varin.value) is dict
+                        if rest not in varin.value.keys():
+                            raise LanErrors.MissingIndexError(rest)
                         varin = varin.value[rest]
                 elif ext.startswith('[') and ext.endswith(']'):
                     index:int = int(ext[1:-1])

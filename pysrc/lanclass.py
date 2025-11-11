@@ -141,7 +141,7 @@ class LanClass:
     def do_method(self, methodName:str, args:list[VariableValue]) -> VariableValue:
         full_parameters = [self.props_to_set()] + args
         Return = self.Methods[methodName].execute(self.Parent, full_parameters, False, self)
-        print("Doing method: ", full_parameters)
+        self.Parent.echo(f"Doing method '{methodName}' with {full_parameters}")
         return Return if Return is not None else VariableValue(LanType.nil())
     
     def do_private_method(self, methodName, args) -> VariableValue:

@@ -1,7 +1,16 @@
 class LanErrors:
 
     class MylangeError(Exception):
-        pass
+        message:str
+        value:None
+        
+    class ErrorWrapper(Exception):
+        line:str
+        error:Exception
+        def __init__(self, line:str, error:Exception) -> None:
+            self.line = line
+            self.error = error
+            super().__init__()
 
     # Used as Program indicators, not errors
     class StopProgramExecution(MylangeError):
@@ -75,4 +84,10 @@ class LanErrors:
         def __init__(self, msg:str="UnknownTypeError-undefined_error_info", value=None) -> None:
             self.value = value
             self.message = f"Unknown or undefined type used: {msg}"
+            super().__init__(self.message)
+            
+    class MissingIndexError(MylangeError):
+        def __init__(self, msg:str="MissingIndexError-undefined_error_info", value=None) -> None:
+            self.message = f"Could not retrive the index on object for: {msg}"
+            self.value = value
             super().__init__(self.message)

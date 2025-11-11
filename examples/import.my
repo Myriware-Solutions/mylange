@@ -3,12 +3,15 @@ class Person has {
     private string First;
     private string Last;
     private integer Age => 18;
+    public int NotThere;
 
     public def nil constructor(string first, string last) as {
-        print("constructor called!");
+        print("Constructor called!");
         System.IO.DumpCache();
         this:First => first;
         this:Last => last;
+        this:NotThere => 0;
+        System.IO.DumpCache();
     };
 
     public def nil Greet() as {

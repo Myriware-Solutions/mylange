@@ -3,6 +3,7 @@ import re, os, sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
 from lantypes import LanType, LanScaffold
+from lanerrors import LanErrors
 from importlib.metadata import version
 # Vars
 
@@ -53,11 +54,13 @@ if not linear:
     assert file_name is not None
     with open(file_name, "r", encoding='utf-8') as f:
         code = remove_comments(f.read())
-        r = structure.interpret(code)
-        if r is None:
+        r = "Error"
+        try:
+            r = structure.interpret(code)
+        except LanErrors.Break:
             print(f"Program Ended with Error"*AnsiColor.RED)
-        else: 
-            print(f"Returned with: {r}"*AnsiColor.GREEN)
+        finally:
+            print(f"Returned with: {r}"*(AnsiColor.YELLOW if r=="Error" else AnsiColor.GREEN))
 else:
     print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version("mylange")}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")

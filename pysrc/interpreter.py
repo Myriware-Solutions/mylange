@@ -253,35 +253,47 @@ class MylangeInterpreter:
         self.echo("Converting to Child Process")
 
     ObjectMethodMaster:LanClass|None
+    
+    @staticmethod
+    def get_index(needle:str, haystack:str) -> list[int]:
+        Return = []
+        for i, line in enumerate(haystack.split("\n"), 1):
+            if needle in line: Return.append(i)
+        return Return
 
     def interpret(self, string:str, overrideClean:bool=False, objectMethodMaster:LanClass|None=None) -> VariableValue|None:
         self.ObjectMethodMaster = objectMethodMaster
         try:
             return self.interpret_logic(string, overrideClean)
-        except LanErrors.Break: 
-            raise LanErrors.Break()
-        except LanErrors.MylangeError as exception:
-            print(f"Fatal Error: {exception}"*AnsiColor.BRIGHT_RED)
-            if self.EchosEnables: raise exception
-            return None
+        except LanErrors.ErrorWrapper as errorWrap: 
+            match errorWrap.error:
+                case LanErrors.Break():
+                    raise LanErrors.Break()
+                case LanErrors.MylangeError():
+                    print(f"Fatal Error: {errorWrap.error}"*AnsiColor.BRIGHT_RED + f"\n\ton line {self.get_index(errorWrap.line, string)}: {errorWrap.line}"*AnsiColor.RED)
+                    if self.EchosEnables: raise errorWrap.error
+                    raise LanErrors.Break()
 
     def interpret_logic(self, string:str, overrideClean:bool=False) -> VariableValue:
         lines:list[str] = self.make_chucks(string, overrideClean, self.StartBlockCacheNumber)
         Return:VariableValue = VariableValue(LanType.nil(), None); matched:bool = False
         for line in lines:
-            self.echo(line, "MyInLoop")
-            # Match the type of line
-            for matcher in all_matchers(LineMatcher):
-                result = matcher.match(self, line)
-                if type(result) is VariableValue:
-                    matched = True
-                    self.LineNumber += 1
-                    if (result.Type != LanScaffold.nil):
-                        Return = result
-                        break
-                    elif matched:
-                        break
-            if not matched: raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: {line}")
+            try:
+                self.echo(line, "MyInLoop")
+                # Match the type of line
+                for matcher in all_matchers(LineMatcher):
+                    result = matcher.match(self, line)
+                    if type(result) is VariableValue:
+                        matched = True
+                        self.LineNumber += 1
+                        if (result.Type != LanScaffold.nil):
+                            Return = result
+                            break
+                        elif matched:
+                            break
+                if not matched: raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: {line}")
+            except LanErrors.MylangeError as error:
+                raise LanErrors.ErrorWrapper(line, error)
         return Return
 
     def make_chucks(self, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
