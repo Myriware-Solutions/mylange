@@ -7,6 +7,10 @@ from lantypes import VariableValue, LanType, LanScaffold
 from lanclass import LanClass, LanFunction
 from enum import IntEnum, StrEnum
 
+import typing
+if typing.TYPE_CHECKING:
+    from interpreter import MylangeInterpreter
+
 class VarQuerryParts(StrEnum):
     AllMacthes = r"(?::[a-zA-Z]\w+)|(?:\[\d+\])"
 
@@ -16,14 +20,14 @@ class MemoryBooker:
     _function_registry:dict[str, LanFunction]
     RegisteredFunctionNames:list[str]
     _class_registry:dict[str, LanClass]
+    Parent:'MylangeInterpreter'
 
-    def __init__(self):
-        from interpreter import LanFunction
-        from lanclass import LanClass
+    def __init__(self, parent:'MylangeInterpreter'):
         self.Registry = {}
         self._function_registry = {}
         self.RegisteredFunctionNames = []
         self._class_registry = {}
+        self.Parent = parent
     
     def SetFunction(self, name:str, funct:LanFunction) -> int:
         """Sets a function to the given name and function.
@@ -68,7 +72,7 @@ class MemoryBooker:
                     if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
                         if (varin.value.has_method(':', [LanType.set(), LanType.string()])):
-                            varin = varin.value.do_method(':', [VariableValue(LanType.string(), rest)], False) #TODO ENSURE THIS IS TRUE
+                            varin = varin.value.do_method(':', [VariableValue(LanType.string(), rest)], self.Parent) #TODO ENSURE THIS IS TRUE
                         else:
                             try:
                                 varin = varin.value.Properties[rest]
@@ -84,7 +88,7 @@ class MemoryBooker:
                     if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
                         if (varin.value.has_method('[]', [LanType.int()])):
-                            varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)], False) #AGAGAGAGAGAGAGGAGGA
+                            varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)], self.Parent) #AGAGAGAGAGAGAGGAGGA
                         else:
                             raise LanErrors.NotIndexableError("This class was not defined with a braket-index method, or that method is private.")
                     else:

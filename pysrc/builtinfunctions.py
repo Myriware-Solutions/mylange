@@ -164,7 +164,7 @@ class VariableTypeMethods:
         else:
             # User Defined Class
             assert type(var.value) is LanClass
-            return var.value.do_method(method, params, False) #TODO: Ensure this is true
+            return var.value.do_method(method, params, parent) #TODO: Ensure this is true
 
     class Integer:
         # Add a number to the variable,

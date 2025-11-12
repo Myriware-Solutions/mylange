@@ -1,7 +1,5 @@
 # IMPORT
-import re
-import json
-import copy
+import re, json, copy, os
 
 from lanregexes import ActualRegex
 from memory import MemoryBooker
@@ -50,23 +48,28 @@ class MatchBox:
         pattern = ActualRegex.ImportStatement.value
         @classmethod
         def handle(cls, self, m):
-            file_name:str = m.group(1) + FILE_EXT
-            self.echo(f"Importing from {file_name}", "Importer")
+            prefix = os.path.dirname(self.FilePath) + "/" if self.FilePath else "./"
+            file_path:str = prefix + m.group(1)
+            if not re.match(rf"{FILE_EXT}$", file_path): file_path += FILE_EXT
+            file_path = re.sub(r"/+", "/", file_path.replace("\\", "/"))
+            self.echo(f"Importing from {file_path}", "Importer")
             classes_block:str = m.group(2)
             classes = [funct.strip() for funct in classes_block.split(",")]
             # Setup Vitual envirement
             mil = MylangeInterpreter(f"Imports\\{m.group(1)}")
             if self.EchosEnables: mil.enable_echos()
-            
-            with open(file_name, 'r') as imports_file:
-                mil.interpret(imports_file.read())
-                for class_name in classes:
-                    self.echo(f"Processing import request: {class_name}")
-                    if class_name in mil.Booker._class_registry.keys():
-                        class_obj = mil.Booker.GetClass(class_name)
-                        class_obj.Import = True
-                        self.Booker.SetClass(class_name, class_obj)
-                    else: raise LanErrors.MissingImportError()
+            try:
+                with open(file_path, 'r') as imports_file:
+                    mil.interpret(imports_file.read())
+                    for class_name in classes:
+                        self.echo(f"Processing import request: {class_name}")
+                        if class_name in mil.Booker._class_registry.keys():
+                            class_obj = mil.Booker.GetClass(class_name)
+                            class_obj.Import = True
+                            self.Booker.SetClass(class_name, class_obj)
+                        else: raise LanErrors.MissingImportError()
+            except FileNotFoundError:
+                raise LanErrors.MissingImportFileError(file_path)
             return NIL_RETURN
     class VariableDecalaration(LineMatcher):
         pattern = ActualRegex.VariableDecleration.value
@@ -226,6 +229,7 @@ class MylangeInterpreter:
     LineNumber:int
     StartBlockCacheNumber:int
     EchosEnables:bool = False
+    FilePath:str|None
 
     def enable_echos(self) -> None:
         self.EchosEnables = True
@@ -237,13 +241,14 @@ class MylangeInterpreter:
         indentation:str = '\t'*indent
         print(f"{indentation}\033[36m[{self.LineNumber}:{origin}:{self.BlockTree}]\033[0m ", text)
 
-    def __init__(self, blockTree:str, startingLineNumber:int=0, startBlockCacheNumber=0) -> None:
+    def __init__(self, blockTree:str, startingLineNumber:int=0, startBlockCacheNumber=0, filePath:str|None=None) -> None:
         #print("\033[33m<Creating Interpreter Class>\033[0m")
-        self.Booker = MemoryBooker()
+        self.Booker = MemoryBooker(self)
         self.CleanCodeCache = {}
         self.BlockTree = blockTree
         self.LineNumber = startingLineNumber
         self.StartBlockCacheNumber = startBlockCacheNumber
+        self.FilePath = filePath
 
     def make_child_block(self, parent:'MylangeInterpreter', shareMemory:bool) -> None:
         # IF these are set dirrectly, then they will allow
@@ -423,7 +428,7 @@ class MylangeInterpreter:
             else:
                 formatedParams = self.format_parameter_list(chain_link[1]) if chain_link[1] != None else []
                 if type(working_var) is LanClass:
-                    working_var = working_var.do_method(chain_link[0], formatedParams, False) #TODO AHAGAHGAHG
+                    working_var = working_var.do_method(chain_link[0], formatedParams, self, True) #TODO AHAGAHGAHG
                 elif (working_var is not None) and (type(working_var) is not VariableValue):
                     raise LanErrors.MylangeError(f"Expected Variable value, got {type(working_var)} for '{working_var}'")
                 else: working_var = self.evalute_method(working_var, chain_link[0], formatedParams, i)
@@ -439,7 +444,7 @@ class MylangeInterpreter:
         elif type(base) is VariableValue and (base != None) and (base.Type == LanScaffold.casting):
             self.echo("Accessing Casting method")
             b = base.value; assert type(b) is LanClass
-            Return = b.do_method(methodName, methodParameters, False) #TODO: Make sure this is right to case
+            Return = b.do_method(methodName, methodParameters, self) #TODO: Make sure this is right to case
         elif (RandomTypeConversions.convert(methodName, self).Type != LanScaffold.nil) and chainIndex == 0:
             # A Random Type Instance, at the base
             Return = RandomTypeConversions.convert(methodName, self)
@@ -466,7 +471,9 @@ class MylangeInterpreter:
         elif (methodName in self.Booker._class_registry.keys()) and chainIndex == 0:
             #TODO: User-defined static method
             Return = self.Booker.GetClass(methodName)
-        
+        elif (self.ObjectMethodMaster and (methodName == self.ObjectMethodMaster.Name)) and chainIndex == 0:
+            # Referencing a static method within the class
+            Return = self.ObjectMethodMaster
         
         
         elif (self.get_cached_reference(methodName) != None) and chainIndex == 0:
@@ -475,7 +482,9 @@ class MylangeInterpreter:
         elif (self.Booker.find(methodName)) and chainIndex == 0:
             # Variable, most likely as a chain base
             Return = self.Booker.get(methodName)
-        else: raise Exception(f"Cannot find Function/Method/Class/Variable for method: {methodName}")
+        else:
+            print("OMM", self.ObjectMethodMaster)
+            raise LanErrors.MylangeError(f"Cannot find Function/Method/Class/Variable for method: {methodName}")
         self.echo(f"Returning: {Return}")
         return Return
     

@@ -91,3 +91,8 @@ class LanErrors:
             self.message = f"Could not retrive the index on object for: {msg}"
             self.value = value
             super().__init__(self.message)
+    
+    class MissingImportFileError(MylangeError):
+        def __init__(self, path:str="MissingImportError-undefined_error_info") -> None:
+            self.message = f"Could not find specified file import: {path}"
+            super().__init__(self.message)

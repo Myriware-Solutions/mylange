@@ -1,9 +1,9 @@
-from ../examples/import import Person;
+from import import Person;
 
 class Main has {
 
     public def int notmain() as {
-
+        print("this is NOT the main function");
     };
 
     public static def int main(array<str> args) as {
@@ -22,8 +22,12 @@ class Main has {
         array<Person> pf => ps.where(bool (Person pl) as { return pl:Last == "D"; });
         print(pf);
 
-        Person.Hello("Anthony");
+        Person.Hello(Main.Some() .. ", Anthony");
 
         return 0;
+    };
+
+    private static def str Some() as {
+        return "Hello world";
     };
 };

@@ -44,16 +44,16 @@ def ERRNO_PROMPT(amount:int) -> str:
 # Entry point for using the CLI
 linear:bool=False
 params:list[str] = sys.argv
-file_name:str|None=None
+file_path:str|None=None
 if (len(params) >= 2):
-    file_name = params[1]
+    file_path = params[1]
 else: linear = True
 
 if not linear:
-    structure:MylangeInterpreter = MylangeInterpreter("Main")
+    assert file_path is not None
+    structure:MylangeInterpreter = MylangeInterpreter("Main", filePath=file_path)
     if "--echoes" in params: structure.enable_echos()
-    assert file_name is not None
-    with open(file_name, "r", encoding='utf-8') as f:
+    with open(file_path, "r", encoding='utf-8') as f:
         code = remove_comments(f.read())
         r = "Error"
         try:
@@ -66,10 +66,9 @@ if not linear:
                     if structure.Booker.GetClass("Main").has_method("main", [main_param_types]):
                         main_function = structure.Booker.GetClass("Main").get_method("main", [main_param_types])
                         r = main_function.execute(structure, [VariableValue[list[VariableValue[str]]](main_param_types, [])])
+            print(f"Returned with: {r}"*(AnsiColor.YELLOW if r=="Error" else AnsiColor.GREEN))
         except LanErrors.Break:
             print(f"Program Ended with Error"*AnsiColor.RED)
-        finally:
-            print(f"Returned with: {r}"*(AnsiColor.YELLOW if r=="Error" else AnsiColor.GREEN))
 else:
     print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version("mylange")}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")

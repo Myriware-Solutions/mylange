@@ -24,19 +24,21 @@ class LanFunction:
     Parameters:dict[str, LanType]
     Code:str
     Access:int
+    MethodMasterClass:'LanClass|None' # If the function is acting as a method, provide it's master class
     def __init__(self, fName:str, fReturnType:LanType, fParamStruct:dict[str, LanType],
-                 fCode:str, access=AttributeAccessabilities.public):
+                 fCode:str, access=AttributeAccessabilities.public, methodMasterClass:'LanClass|None'=None):
         self.Parameters = fParamStruct
         self.Name = fName
         self.ReturnType = fReturnType
         self.Code = fCode
         self.Access = access
+        self.MethodMasterClass = methodMasterClass
         
     @staticmethod
     def GetFunctionHash(name:str, paramTypes:list[LanType]) -> str:
         return re.sub(r"\s", "", f"{name}:" + ",".join([str(item) for item in paramTypes]))
     
-    def execute(self, parent:'MylangeInterpreter', params:list[VariableValue], includeMemory:bool=False, objectMethodMaster:'LanClass|None'=None) -> VariableValue:
+    def execute(self, parent:'MylangeInterpreter', params:list[VariableValue], includeMemory:bool=False) -> VariableValue:
         from interpreter import MylangeInterpreter
         container = MylangeInterpreter(f"Funct\\{self.Name}")
         old_mem_keys:list[str] = []
@@ -46,7 +48,7 @@ class LanFunction:
             if includeMemory: container.make_child_block(parent, True)
             else: container.make_child_block(parent, False)
             if parent.EchosEnables: container.enable_echos()
-        container.echo(f"Executing LanFunction: {self.Name}")
+        container.echo(f"Executing LanFunction: {self.Name}; master: {self.MethodMasterClass}")
         # Add parameters
         if len(params) != len(self.Parameters):
             raise Exception(f"Length of Given and Expected Parameters do not Match: given {len(params)}, expected {len(self.Parameters)}")
@@ -54,7 +56,7 @@ class LanFunction:
             if (param[1] != LanScaffold.dynamic) and (params[i].Type != param[1]): 
                 raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].Type}")
             container.Booker.set(param[0], params[i])
-        Return = container.interpret(self.Code, True, objectMethodMaster)
+        Return = container.interpret(self.Code, True, self.MethodMasterClass)
         if Return is None:
             Return = VariableValue(LanType.nil())
         
@@ -91,7 +93,7 @@ class LanClass:
         r = re.sub(r" +", ' ', r, flags=re.MULTILINE|re.UNICODE)
         return r.split(';')
     def __str__(self):
-        return self.Name
+        return "Class:" + self.Name
     def __init__(self, name:str, codeBody:str, parent:'MylangeInterpreter', imported:bool=False):
         self.Import = imported
         from interpreter import CodeCleaner
@@ -133,7 +135,7 @@ class LanClass:
                 method_params[sections[1]] = LanType.get_type_from_typestr(sections[0])
             funct = LanFunction(method_str.group(3), 
                 LanType.get_type_from_typestr(method_str.group(2)),
-                method_params, parent.CleanCodeCache[method_str.group(5)])
+                method_params, parent.CleanCodeCache[method_str.group(5)], methodMasterClass=self)
             self.set_method(access, method_str.group(3), funct)
     
     def set_property(self, accessability:int, name:str, value:VariableValue):
@@ -161,25 +163,26 @@ class LanClass:
 
     def create(self, args):
         object_copy = copy.deepcopy(self)
-        object_copy.do_method("constructor", args, True)
+        object_copy.do_method("constructor", args, self)
         return VariableValue(LanType(LanScaffold.casting), object_copy)
     
     def props_to_set(self) -> VariableValue:
         full_properties = self.Properties | self.PrivateProperties
         return VariableValue(LanType(LanScaffold.set), full_properties)
     
-    def do_method(self, methodName:str, args:list[VariableValue], internal:bool) -> VariableValue:
+    def do_method(self, methodName:str, args:list[VariableValue], caller:'MylangeInterpreter|LanClass', statically:bool=False) -> VariableValue:
         full_parameters = [self.props_to_set()] + args
-        staticly = False
         method:LanFunction|None = None
-        if self.has_method(methodName, [arg.Type for arg in args]):
-            method = self.get_method(methodName, [arg.Type for arg in args])
-            staticly = True
+        if statically: method = self.get_method(methodName, [arg.Type for arg in args])
         else: method = self.get_method(methodName, [arg.Type for arg in full_parameters])
         assert method is not None
-        if (not internal) and (method.Access & AttributeAccessabilities.private):
-            raise Exception("Cannot access this method. Are you internal?")
-        Return = method.execute(self.Parent, full_parameters if not staticly else args, False, self)
+        if (method.Access & AttributeAccessabilities.private):
+            from interpreter import MylangeInterpreter
+            if ((type(caller) is MylangeInterpreter) and (caller.ObjectMethodMaster is not None)
+                and caller.ObjectMethodMaster.Name == self.Name): pass
+            elif (type(caller) is LanClass) and caller.Name == self.Name: pass
+            else: raise Exception("Cannot access this method. Are you internal?")
+        Return = method.execute(self.Parent, full_parameters if not statically else args, False)
         self.Parent.echo(f"Doing method '{methodName}' with {full_parameters}")
         return Return if Return is not None else VariableValue(LanType.nil())
     
