@@ -1,7 +1,6 @@
 # IMPORTS
-import re
-import copy
-from enum import IntEnum
+import re, copy, hashlib
+from enum import IntFlag
 
 from lantypes import LanType, LanScaffold, VariableValue, RandomTypeConversions
 from lanerrors import LanErrors
@@ -10,6 +9,12 @@ from lanregexes import ActualRegex
 import typing
 if typing.TYPE_CHECKING:
     from interpreter import MylangeInterpreter
+    
+class AttributeAccessabilities(IntFlag):
+    private = 1 << 0
+    public  = 1 << 1
+    static  = 1 << 2
+
 # =========== #
 #  Functions  #
 # =========== #
@@ -18,11 +23,18 @@ class LanFunction:
     ReturnType:LanType
     Parameters:dict[str, LanType]
     Code:str
-    def __init__(self, fName:str, fReturnType:LanType, fParamStruct:dict[str, LanType], fCode:str):
+    Access:int
+    def __init__(self, fName:str, fReturnType:LanType, fParamStruct:dict[str, LanType],
+                 fCode:str, access=AttributeAccessabilities.public):
         self.Parameters = fParamStruct
         self.Name = fName
         self.ReturnType = fReturnType
         self.Code = fCode
+        self.Access = access
+        
+    @staticmethod
+    def GetFunctionHash(name:str, paramTypes:list[LanType]) -> str:
+        return re.sub(r"\s", "", f"{name}:" + ",".join([str(item) for item in paramTypes]))
     
     def execute(self, parent:'MylangeInterpreter', params:list[VariableValue], includeMemory:bool=False, objectMethodMaster:'LanClass|None'=None) -> VariableValue:
         from interpreter import MylangeInterpreter
@@ -51,20 +63,24 @@ class LanFunction:
             for key in list(parent.Booker.Registry.keys()):
                 if key not in old_mem_keys: del parent.Booker.Registry[key]
         if (self.ReturnType != LanScaffold.dynamic) and (Return.Type != self.ReturnType):
-            raise LanErrors.WrongTypeExpectationError("Function is trying to return wrong value type.")
+            raise LanErrors.WrongTypeExpectationError(f"Function is trying to return wrong value type. Expected '{self.ReturnType}', got '{Return.Type}'.")
         return Return
-
-class AttributeAccessabilities(IntEnum):
-    private = 0
-    public = 1
+    
+    def __str__(self) -> str:
+        return f"def {self.Name} ({", ".join([f"{key}: {tipe} " for key, tipe in self.Parameters.items()])})"
+    
+    def __repr__(self) -> str: return self.__str__()
 
 # =========== #
 #   Classes   #
 # =========== #
 class LanClass:
     Name:str
-    Methods:dict[str, LanFunction]
-    PrivateMethods:dict[str, LanFunction]
+    Import:bool
+    
+    _methods_registry:dict[str, LanFunction]
+    
+    
     Properties:dict[str, VariableValue]
     PrivateProperties:dict[str, VariableValue]
     Parent:'MylangeInterpreter'
@@ -76,12 +92,13 @@ class LanClass:
         return r.split(';')
     def __str__(self):
         return self.Name
-    def __init__(self, name:str, codeBody:str, parent:'MylangeInterpreter'):
+    def __init__(self, name:str, codeBody:str, parent:'MylangeInterpreter', imported:bool=False):
+        self.Import = imported
         from interpreter import CodeCleaner
         # Setup defults
         self.Name = name
-        self.Methods = {}; self.Properties = {}
-        self.PrivateMethods = {}; self.PrivateProperties = {}
+        self.Properties = {}; self.PrivateProperties = {}
+        self._methods_registry = {}
         # Analyze code
         from interpreter import MylangeInterpreter
         self.Parent:MylangeInterpreter = parent
@@ -102,8 +119,14 @@ class LanClass:
         # Methods
         for method_str in method_strs:
             assert method_str is not None
-            accessability = AttributeAccessabilities[method_str.group(1)]
-            method_params:dict[str, LanType] = { "this": LanType(LanScaffold.set) }
+            
+            access = sum(AttributeAccessabilities[modifier] for modifier in re.findall(r"[\w]+", method_str.group(1)))
+            
+            method_params:dict[str, LanType]|None = None
+            if access & AttributeAccessabilities.static: method_params = {}
+            else: method_params = { "this": LanType(LanScaffold.set) }
+            assert method_params is not None
+            
             for method_param_str in CodeCleaner.split_top_level_commas(method_str.group(4), stripReturns=True):
                 sections = CodeCleaner.split_top_level_commas(method_param_str, " ", stripReturns=True)
                 if len(sections) != 2: raise Exception(f"Expected two parts from '{method_param_str}'")
@@ -111,42 +134,55 @@ class LanClass:
             funct = LanFunction(method_str.group(3), 
                 LanType.get_type_from_typestr(method_str.group(2)),
                 method_params, parent.CleanCodeCache[method_str.group(5)])
-            self.set_method(accessability, method_str.group(3), funct)
+            self.set_method(access, method_str.group(3), funct)
     
-    def set_property(self, accessability:AttributeAccessabilities, name:str, value:VariableValue):
+    def set_property(self, accessability:int, name:str, value:VariableValue):
         Group = None
         match accessability:
             case AttributeAccessabilities.private: Group = self.PrivateProperties
             case AttributeAccessabilities.public: Group = self.Properties
+            case _: raise Exception()
         if name in Group.keys(): raise LanErrors.DuplicatePropertyError(name)
         Group[name] = value
 
-    def set_method(self, accessability:AttributeAccessabilities, name:str, funct:LanFunction):
-        Group = None
-        match accessability:
-            case AttributeAccessabilities.private: Group = self.PrivateMethods
-            case AttributeAccessabilities.public: Group = self.Methods
-        if name in Group.keys(): raise LanErrors.DuplicateMethodError()
-        Group[name] = funct
+    def set_method(self, access:int, name:str, funct:LanFunction) -> int:
+        tup = LanFunction.GetFunctionHash(name, list(funct.Parameters.values()))
+        funct.Access = access
+        self._methods_registry[tup] = funct
+        self.Parent.echo(f"Setting function: {name}, {access}, {funct}")
+        return 0
+    
+    def get_method(self, name:str, paramTypes:list[LanType]) -> LanFunction:
+        function_id = LanFunction.GetFunctionHash(name, paramTypes)
+        self.Parent.echo(f"Getting method: {self._methods_registry}")
+        if function_id not in self._methods_registry:
+            raise Exception(f"Cannot find requested function '{function_id}' out of: {self._methods_registry.keys()}")
+        return self._methods_registry[function_id]
 
     def create(self, args):
         object_copy = copy.deepcopy(self)
-        object_copy.do_method("constructor", args)
+        object_copy.do_method("constructor", args, True)
         return VariableValue(LanType(LanScaffold.casting), object_copy)
     
     def props_to_set(self) -> VariableValue:
         full_properties = self.Properties | self.PrivateProperties
         return VariableValue(LanType(LanScaffold.set), full_properties)
     
-    def do_method(self, methodName:str, args:list[VariableValue]) -> VariableValue:
+    def do_method(self, methodName:str, args:list[VariableValue], internal:bool) -> VariableValue:
         full_parameters = [self.props_to_set()] + args
-        Return = self.Methods[methodName].execute(self.Parent, full_parameters, False, self)
+        staticly = False
+        method:LanFunction|None = None
+        if self.has_method(methodName, [arg.Type for arg in args]):
+            method = self.get_method(methodName, [arg.Type for arg in args])
+            staticly = True
+        else: method = self.get_method(methodName, [arg.Type for arg in full_parameters])
+        assert method is not None
+        if (not internal) and (method.Access & AttributeAccessabilities.private):
+            raise Exception("Cannot access this method. Are you internal?")
+        Return = method.execute(self.Parent, full_parameters if not staticly else args, False, self)
         self.Parent.echo(f"Doing method '{methodName}' with {full_parameters}")
         return Return if Return is not None else VariableValue(LanType.nil())
     
-    def do_private_method(self, methodName, args) -> VariableValue:
-        full_parameters = [self.props_to_set()] + args
-        return self.PrivateMethods[methodName].execute(self.Parent, full_parameters, False, self)
-    
-    def has_method(self, methodName:str) -> bool:
-        return methodName in self.Methods.keys()
+    def has_method(self, methodName:str, paramTypes:list[LanType]) -> bool:
+        self.Parent.echo(f"Has method?: {LanFunction.GetFunctionHash(methodName, paramTypes)}")
+        return LanFunction.GetFunctionHash(methodName, paramTypes) in self._methods_registry.keys()

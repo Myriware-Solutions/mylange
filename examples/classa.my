@@ -2,20 +2,28 @@ from ../examples/import import Person;
 
 class Main has {
 
-    public def int main() as {
+    public def int notmain() as {
+
+    };
+
+    public static def int main(array<str> args) as {
         Person p => new Person("Anthony", "S");
         Person p2 => new Person("Zach", "D");
+
+        p.Greet();
 
         print(p:First);
 
         array<str> Return => [p:First, p:Last];
-        print(TypeOf(Return, true));
+        //print(TypeOf(Return, true));
 
         array<Person> ps => [p, p2];
 
         array<Person> pf => ps.where(bool (Person pl) as { return pl:Last == "D"; });
         print(pf);
 
-        return Return;
-    }
-}
+        Person.Hello("Anthony");
+
+        return 0;
+    };
+};

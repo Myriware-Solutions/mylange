@@ -53,7 +53,7 @@ class MatchBox:
             file_name:str = m.group(1) + FILE_EXT
             self.echo(f"Importing from {file_name}", "Importer")
             classes_block:str = m.group(2)
-            classes = [classes_block.strip() for funct in classes_block.split(",")]
+            classes = [funct.strip() for funct in classes_block.split(",")]
             # Setup Vitual envirement
             mil = MylangeInterpreter(f"Imports\\{m.group(1)}")
             if self.EchosEnables: mil.enable_echos()
@@ -63,7 +63,9 @@ class MatchBox:
                 for class_name in classes:
                     self.echo(f"Processing import request: {class_name}")
                     if class_name in mil.Booker._class_registry.keys():
-                        self.Booker.SetClass(class_name, mil.Booker.GetClass(class_name))
+                        class_obj = mil.Booker.GetClass(class_name)
+                        class_obj.Import = True
+                        self.Booker.SetClass(class_name, class_obj)
                     else: raise LanErrors.MissingImportError()
             return NIL_RETURN
     class VariableDecalaration(LineMatcher):
@@ -249,6 +251,8 @@ class MylangeInterpreter:
         # which may not be the funcionally wanted
         # if (booker != None): self.Booker = copy.deepcopy(booker)
         if (shareMemory): self.Booker = parent.Booker
+        for name, possible_import in parent.Booker._class_registry.items():
+            if possible_import.Import: self.Booker.SetClass(name, possible_import)
         self.CleanCodeCache = copy.deepcopy(parent.CleanCodeCache)
         self.echo("Converting to Child Process")
 
@@ -411,26 +415,31 @@ class MylangeInterpreter:
             return f(self.Booker, *self.format_parameter_list(builtinMatch.group(2)))
         # First, break into method chain
         method_chain:list[tuple[str|None,str]] = [self.get_method_aspects(i) for i in CodeCleaner.split_top_level_commas(fromString.strip(), '.')]
-        working_var:VariableValue|LanFunction|None = None
+        working_var:VariableValue|LanFunction|LanClass|None = None
         for i, chain_link in enumerate(method_chain):
             #print(chain_link, working_var, type(working_var))
             if chain_link[0] is None:
                 working_var = self.format_parameter(chain_link[1])
             else:
                 formatedParams = self.format_parameter_list(chain_link[1]) if chain_link[1] != None else []
-                if (working_var is not None) and (type(working_var) is not VariableValue): raise LanErrors.MylangeError(f"Expected Variable value, got {type(working_var)} for '{working_var}'")
-                working_var = self.evalute_method(working_var, chain_link[0], formatedParams, i)
+                if type(working_var) is LanClass:
+                    working_var = working_var.do_method(chain_link[0], formatedParams, False) #TODO AHAGAHGAHG
+                elif (working_var is not None) and (type(working_var) is not VariableValue):
+                    raise LanErrors.MylangeError(f"Expected Variable value, got {type(working_var)} for '{working_var}'")
+                else: working_var = self.evalute_method(working_var, chain_link[0], formatedParams, i)
         assert type(working_var) is VariableValue
         return working_var
         
-    def evalute_method(self, base:VariableValue|None, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|None:
+    def evalute_method(self, base:VariableValue|LanClass|None, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|LanClass|None:
         # Create Virtual Workspace
-        Return:VariableValue|LanFunction|None = None
+        Return:VariableValue|LanFunction|LanClass|None = None
         self.echo(f"Working chain -{chainIndex}-: {methodName}; {methodParameters}")
-        if (base != None) and (base.Type == LanScaffold.casting):
+        if type(base) is LanClass:
+            print("CHINA")
+        elif type(base) is VariableValue and (base != None) and (base.Type == LanScaffold.casting):
             self.echo("Accessing Casting method")
             b = base.value; assert type(b) is LanClass
-            Return = b.do_method(methodName, methodParameters)
+            Return = b.do_method(methodName, methodParameters, False) #TODO: Make sure this is right to case
         elif (RandomTypeConversions.convert(methodName, self).Type != LanScaffold.nil) and chainIndex == 0:
             # A Random Type Instance, at the base
             Return = RandomTypeConversions.convert(methodName, self)
@@ -449,13 +458,14 @@ class MylangeInterpreter:
             types = [item.Type for item in methodParameters]
             funct = self.Booker.GetFunction(methodName, types)
             Return = funct.execute(self, methodParameters)
+            pass
             
             
             
             
         elif (methodName in self.Booker._class_registry.keys()) and chainIndex == 0:
             #TODO: User-defined static method
-            raise NotImplementedError()
+            Return = self.Booker.GetClass(methodName)
         
         
         

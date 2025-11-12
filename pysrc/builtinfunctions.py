@@ -50,7 +50,7 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
 
     class Casting(MylangeBuiltinScaffold):
         @staticmethod
-        def PrintoutDetails(booker:MemoryBooker, castingVariable:VariableValue, isNameOfType:VariableValue=VariableValue(LanType.bool(), False)) -> None:
+        def PrintoutDetails(booker:MemoryBooker, castingVariable:VariableValue, isNameOfType:VariableValue[bool]=VariableValue(LanType.bool(), False)) -> None:
             # assert type(castingVariable.value) is str
             casting = booker.GetClass(castingVariable.value) if (isNameOfType.value == True) else castingVariable.value
             assert type(casting) is LanClass
@@ -62,8 +62,8 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
                     "private": casting.PrivateProperties
                 },
                 "Methods": {
-                    "public": casting.Methods,
-                    "private": casting.PrivateMethods
+                    "public": {item.Name:item for item in list(casting._methods_registry.values()) if item.Access == 1},
+                    "private": {item.Name:item for item in list(casting._methods_registry.values()) if item.Access == 0}
                 }
             }
             
@@ -164,7 +164,7 @@ class VariableTypeMethods:
         else:
             # User Defined Class
             assert type(var.value) is LanClass
-            return var.value.do_method(method, params)
+            return var.value.do_method(method, params, False) #TODO: Ensure this is true
 
     class Integer:
         # Add a number to the variable,

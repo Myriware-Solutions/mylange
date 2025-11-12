@@ -13,7 +13,7 @@ class VarQuerryParts(StrEnum):
 # Runtime Memory Manager, aka Booker
 class MemoryBooker:
     Registry:dict[str, VariableValue]
-    _function_registry:dict[int, LanFunction]
+    _function_registry:dict[str, LanFunction]
     RegisteredFunctionNames:list[str]
     _class_registry:dict[str, LanClass]
 
@@ -24,10 +24,6 @@ class MemoryBooker:
         self._function_registry = {}
         self.RegisteredFunctionNames = []
         self._class_registry = {}
-        
-    @staticmethod
-    def _get_function_hash(name:str, paramTypes:list[LanType]) -> int:
-        return hash(tuple([name] + paramTypes))
     
     def SetFunction(self, name:str, funct:LanFunction) -> int:
         """Sets a function to the given name and function.
@@ -40,13 +36,12 @@ class MemoryBooker:
             int: Hash of the function, used in the registery.
         """
         if name not in self.RegisteredFunctionNames: self.RegisteredFunctionNames.append(name)
-        tup = tuple([name] + list(funct.Parameters.values()))
-        function_hash = hash(tup)
+        function_hash = LanFunction.GetFunctionHash(name, [item for item in funct.Parameters.values()])
         self._function_registry[function_hash] = funct
-        return function_hash
+        return 0
     
     def GetFunction(self, name:str, paramTypes:list[LanType]) -> LanFunction:
-        function_id = self._get_function_hash(name, paramTypes)
+        function_id = LanFunction.GetFunctionHash(name, paramTypes)
         return self._function_registry[function_id]
     
     def SetClass(self, name:str, classStruct:LanClass) -> None:
@@ -72,8 +67,8 @@ class MemoryBooker:
                     rest:str = ext[1:]
                     if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
-                        if (varin.value.has_method(':')):
-                            varin = varin.value.do_method(':', [VariableValue(LanType.string(), rest)])
+                        if (varin.value.has_method(':', [LanType.set(), LanType.string()])):
+                            varin = varin.value.do_method(':', [VariableValue(LanType.string(), rest)], False) #TODO ENSURE THIS IS TRUE
                         else:
                             try:
                                 varin = varin.value.Properties[rest]
@@ -88,8 +83,8 @@ class MemoryBooker:
                     index:int = int(ext[1:-1])
                     if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
-                        if (varin.value.has_method('[]')):
-                            varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)])
+                        if (varin.value.has_method('[]', [LanType.int()])):
+                            varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)], False) #AGAGAGAGAGAGAGGAGGA
                         else:
                             raise LanErrors.NotIndexableError("This class was not defined with a braket-index method, or that method is private.")
                     else:

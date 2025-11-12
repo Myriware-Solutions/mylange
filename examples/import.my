@@ -6,12 +6,12 @@ class Person has {
     public int NotThere;
 
     public def nil constructor(string first, string last) as {
-        print("Constructor called!");
-        System.IO.DumpCache();
+        print("Constructor called for %s %s!".format(first, last));
+        //System.IO.DumpCache();
         this:First => first;
         this:Last => last;
         this:NotThere => 0;
-        System.IO.DumpCache();
+        //System.IO.DumpCache();
     };
 
     public def nil Greet() as {
@@ -25,5 +25,11 @@ class Person has {
     
     public def string [](integer index) as {
         return "HELLO" .. index;
+    };
+
+    public static def str Hello(str name) as {
+        str string => name .. ", World!";
+        print(string);
+        return string;
     };
 };

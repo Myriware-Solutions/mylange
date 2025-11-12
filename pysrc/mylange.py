@@ -4,6 +4,7 @@ from interpreter import MylangeInterpreter
 from interface import AnsiColor
 from lantypes import LanType, LanScaffold
 from lanerrors import LanErrors
+from lantypes import VariableValue
 from importlib.metadata import version
 # Vars
 
@@ -61,8 +62,10 @@ if not linear:
             if r.Type.TypeNum == LanScaffold.nil:
                 # Check to see if there is a Main class and method
                 if "Main" in structure.Booker._class_registry:
-                    if "main" in structure.Booker.GetClass("Main").Methods.keys():
-                        structure.interpret("Main.main();")
+                    main_param_types = LanType(LanScaffold.array, [LanType.string()])
+                    if structure.Booker.GetClass("Main").has_method("main", [main_param_types]):
+                        main_function = structure.Booker.GetClass("Main").get_method("main", [main_param_types])
+                        r = main_function.execute(structure, [VariableValue[list[VariableValue[str]]](main_param_types, [])])
         except LanErrors.Break:
             print(f"Program Ended with Error"*AnsiColor.RED)
         finally:
