@@ -4,12 +4,12 @@ import re, json, copy, os
 from lanregexes import ActualRegex
 from memory import MemoryBooker
 from lantypes import VariableValue, RandomTypeConversions, ParamChecker, LanType, LanScaffold
-#from booleanlogic import LanBooleanStatementLogic
 from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions, VariableTypeMethods
 from lanerrors import LanErrors
 from interface import AnsiColor
 from lanclass import LanClass, LanFunction
+
 # GLOBALS
 FILE_EXT:str = ".my"
 NIL_RETURN:VariableValue = VariableValue(LanType.nil(), None)

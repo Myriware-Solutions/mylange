@@ -1,4 +1,4 @@
-string NumberString => System.IO.Input("NUMBER> ");
+str NumberString => System.IO.Input("NUMBER> ");
 int number => NumberString.toInteger();
 print("Your Number is: " .. number.toString());
 

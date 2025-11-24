@@ -3,15 +3,3 @@ Example:
 def +<(Class l, Class R) as {
     ...
 };
-
-This involves redoing how classes store function names,
-because I'd also like to add overloads to functions.
-
-Next, now that the new LanType system in integrated and works,
-function overloads may now be possible.
-
-Gameplan: Each function/method is no longer going to be reffered to itself by it's name.
-Rather, it will be named in the storage as a hash of its name and input types. That way,
-functions can be easily found from asking "Is there a function of NAME with TYPE PARAMATERS?"
-
-To get function's hash value: tuple(name:string, para:LanType...)

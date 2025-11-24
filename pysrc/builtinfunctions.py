@@ -1,12 +1,11 @@
 # IMPORTS
 import inspect
 
-from importlib.metadata import version
-
 from memory import MemoryBooker
 from lantypes import VariableValue, ParamChecker, LanType, LanScaffold
 from interface import AnsiColor
 from lanclass import LanFunction, LanClass
+from version import GET_VERSION
 
 NIL_RETURN:VariableValue = VariableValue(LanType.nil(), None)
 
@@ -92,7 +91,7 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     class System(MylangeBuiltinScaffold):
         @staticmethod
         def Version(_) -> None:
-            print(f"Mylange Version: {(version("mylange"))}"*AnsiColor.BRIGHT_BLUE)
+            print(f"Mylange Version: {GET_VERSION()}"*AnsiColor.BRIGHT_BLUE)
         
         class IO(MylangeBuiltinScaffold):
             @staticmethod
@@ -122,6 +121,11 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
                 file_name = fileName.value; assert type(file_name) is str
                 with open(file_name, 'r', encoding="utf-8") as f:
                     return VariableValue(LanType.string(), f.read())
+                
+            @staticmethod
+            def Write(_, fileName:VariableValue[str], content:VariableValue[str]) -> None:
+                with open(fileName.value, 'w', encoding="utf-8") as f:
+                    f.write(content.value)
             
             @classmethod
             def Execute(cls, _, fileName:VariableValue) -> VariableValue|None:

@@ -126,7 +126,7 @@ class LanClass:
             
             method_params:dict[str, LanType]|None = None
             if access & AttributeAccessabilities.static: method_params = {}
-            else: method_params = { "this": LanType(LanScaffold.set) }
+            else: method_params = { "this": LanType(LanScaffold.this) }
             assert method_params is not None
             
             for method_param_str in CodeCleaner.split_top_level_commas(method_str.group(4), stripReturns=True):
@@ -158,7 +158,7 @@ class LanClass:
         function_id = LanFunction.GetFunctionHash(name, paramTypes)
         self.Parent.echo(f"Getting method: {self._methods_registry}")
         if function_id not in self._methods_registry:
-            raise Exception(f"Cannot find requested function '{function_id}' out of: {self._methods_registry.keys()}")
+            raise LanErrors.NotIndexableError(f"Cannot find requested function '{function_id}' out of: {self._methods_registry.keys()}")
         return self._methods_registry[function_id]
 
     def create(self, args):
@@ -168,7 +168,7 @@ class LanClass:
     
     def props_to_set(self) -> VariableValue:
         full_properties = self.Properties | self.PrivateProperties
-        return VariableValue(LanType(LanScaffold.set), full_properties)
+        return VariableValue(LanType(LanScaffold.this), full_properties)
     
     def do_method(self, methodName:str, args:list[VariableValue], caller:'MylangeInterpreter|LanClass', statically:bool=False) -> VariableValue:
         full_parameters = [self.props_to_set()] + args

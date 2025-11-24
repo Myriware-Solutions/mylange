@@ -1,4 +1,9 @@
-from import import Person;
+from Person import Person;
+from utils import something;
+
+/[ askdmaksmalsmdasl
+mdla
+ksk ]/
 
 class Main has {
 
@@ -6,6 +11,13 @@ class Main has {
         print("this is NOT the main function");
     };
 
+    def int notmaina() as {
+
+    };
+
+    /[
+    * This is the main function
+    ]/
     public static def int main(array<str> args) as {
         Person p => new Person("Anthony", "S");
         Person p2 => new Person("Zach", "D");

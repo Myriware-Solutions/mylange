@@ -1,5 +1,5 @@
 # IMPORTS
-from enum import IntEnum, Enum, unique
+from enum import IntEnum, Enum, unique, auto
 from lanregexes import ActualRegex
 import re
 from typing import Generic, TypeVar
@@ -116,6 +116,7 @@ class LanScaffold(IntEnum):
     set       = 6
     casting   = 7
     dynamic   = 8
+    this      = 9
     
     @classmethod
     def from_string(cls, typestring:str) -> 'LanScaffold':
@@ -138,7 +139,8 @@ class LanScaffold(IntEnum):
             ["array", "arr"], 
             ["set"], 
             ["casting"], 
-            ["dynamic"]
+            ["dynamic"],
+            ["this"]
         ]
     
 class LanType:

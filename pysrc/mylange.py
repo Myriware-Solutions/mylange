@@ -5,7 +5,8 @@ from interface import AnsiColor
 from lantypes import LanType, LanScaffold
 from lanerrors import LanErrors
 from lantypes import VariableValue
-from importlib.metadata import version
+from version import GET_VERSION
+
 # Vars
 
 def remove_comments(string:str) -> str:
@@ -65,12 +66,13 @@ if not linear:
                     main_param_types = LanType(LanScaffold.array, [LanType.string()])
                     if structure.Booker.GetClass("Main").has_method("main", [main_param_types]):
                         main_function = structure.Booker.GetClass("Main").get_method("main", [main_param_types])
-                        r = main_function.execute(structure, [VariableValue[list[VariableValue[str]]](main_param_types, [])])
+                        formated_args = [VariableValue[str](LanType.string(), arg) for arg in params[2:]]
+                        r = main_function.execute(structure, [VariableValue[list[VariableValue[str]]](main_param_types, formated_args)])
             print(f"Returned with: {r}"*(AnsiColor.YELLOW if r=="Error" else AnsiColor.GREEN))
         except LanErrors.Break:
             print(f"Program Ended with Error"*AnsiColor.RED)
 else:
-    print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version("mylange")}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
+    print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {GET_VERSION()}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")
     running:bool = True
     input_str:str = ""

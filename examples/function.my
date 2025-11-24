@@ -1,5 +1,11 @@
-def integer AddOne(integer Input) as {
+def int AddOne(integer Input) as {
     print(Input);
     integer result => Input + 1;
     return result;
 };
+
+/[
+(class)    clss
+(function) str Name(str name, int age, Report Callback)
+(var)      str dasKinder
+]/

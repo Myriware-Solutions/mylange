@@ -96,3 +96,9 @@ class LanErrors:
         def __init__(self, path:str="MissingImportError-undefined_error_info") -> None:
             self.message = f"Could not find specified file import: {path}"
             super().__init__(self.message)
+            
+    class NoValidOverloadError(MylangeError):
+        def __init__(self, func_name:str="NoValidOverloadError-undefined_error_info", value=None) -> None:
+            self.value = value
+            self.message = f"No valid overload found for function or method: {func_name}"
+            super().__init__(self.message)

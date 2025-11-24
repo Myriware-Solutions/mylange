@@ -31,7 +31,7 @@ class ActualRegex(Enum):
     BreakStatement = re.compile(r"^break", flags=re.UNICODE)
     # Classes
     ClassStatement = re.compile(r"^class +([a-zA-Z]\w*) +has +(.*)", flags=re.UNICODE)
-    PropertyStatement = re.compile(r"^(public|private)\s*(?!def)([\w]+)\s+(\w+)(?:\s*=>\s*(.*)\s*)?", flags=re.UNICODE)
+    PropertyStatement = re.compile(r"^ *([\w ]+)\s+(\w+)\s+(\w+)(?:\s*=>\s*(.+))?;?$", flags=re.UNICODE)
     NewClassObjectStatement = re.compile(r"new +([a-zA-Z]\w*) *\((.*)\)", flags=re.UNICODE)
     ClassMethodStatement = re.compile(r"([\w ]+)\s*def\s*(\w+)\s*(\w+|:|\[\s*\])\s*\(([\w\s,.<>|]*)\)\s*as\s*(.*)", flags=re.UNICODE)
     # If/Else Statements
