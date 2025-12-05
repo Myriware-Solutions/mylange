@@ -5,6 +5,7 @@ if TYPE_CHECKING:
 from lanregexes import ActualRegex
 from lantypes import RandomTypeConversions, ParamChecker, LanType, LanScaffold
 from lantypes import VariableValue
+from lanerrors import LanErrors
 
 import typing
 if typing.TYPE_CHECKING:
@@ -85,7 +86,7 @@ class LanArithmetics:
     @staticmethod
     def evaluate(left:VariableValue, operation:str, right:VariableValue, chainIndex:int) -> VariableValue:
         try: return LanArithmetics.LambdaOperations[operation](left, right)
-        except: raise Exception(f"Problem with arithmetic operation on chain link {chainIndex}")
+        except: raise LanErrors.MylangeError(f"Problem with arithmetic operation on chain link {chainIndex}")
 
     @staticmethod
     def is_arithmetic(expr:str, operators=None) -> bool:

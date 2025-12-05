@@ -69,7 +69,9 @@ if not linear:
                         formated_args = [VariableValue[str](LanType.string(), arg) for arg in params[2:]]
                         r = main_function.execute(structure, [VariableValue[list[VariableValue[str]]](main_param_types, formated_args)])
             print(f"Returned with: {r}"*(AnsiColor.YELLOW if r=="Error" else AnsiColor.GREEN))
-        except LanErrors.Break:
+        except LanErrors.ErrorWrapper as ew:
+            #ew.get_index(errorWrap.line, string)
+            print(f"Fatal Error: {ew.error}"*AnsiColor.BRIGHT_RED + f"\n\ton line {3}: {ew.line}"*AnsiColor.RED)
             print(f"Program Ended with Error"*AnsiColor.RED)
 else:
     print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {GET_VERSION()}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
@@ -108,7 +110,11 @@ else:
                     case "*help":
                         print(HELP_MENU)
                     case _:
-                        res = mi.interpret(input_str)
+                        try: res = mi.interpret(input_str)
+                        except LanErrors.ErrorWrapper as error:
+                            print(("Error: "+error.error.message)*AnsiColor.RED)
+                            input_str = ""
+                            continue
                         if res is None:
                             print("This code snippet does not work. Try running '*help'."*AnsiColor.YELLOW)
                         elif (res.Type == LanScaffold.integer) and (res.value == 0):

@@ -43,4 +43,7 @@ class ActualRegex(Enum):
     GeneralArithmetics = re.compile(r"^(.*?) *([.+\-*\/]+) *(.*) *$", flags=re.UNICODE)
     # Set 
     SetInners = re.compile(r"\((?:\s*\w+\s*=>\s*.+,?)+\)", flags=re.UNICODE)
+    # Try/catch
+    TryCatchStatement = re.compile(r"^ *try(.*?)catch(.*)$", flags=re.UNICODE)
+    ExceptionAsByStatement = re.compile(r"(\w+)(?:\s+as\s+(\w+))?\s+by\s+(.*)", flags=re.UNICODE)
 

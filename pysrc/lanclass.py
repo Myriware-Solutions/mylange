@@ -38,7 +38,8 @@ class LanFunction:
     def GetFunctionHash(name:str, paramTypes:list[LanType]) -> str:
         return re.sub(r"\s", "", f"{name}:" + ",".join([str(item) for item in paramTypes]))
     
-    def execute(self, parent:'MylangeInterpreter', params:list[VariableValue], includeMemory:bool=False) -> VariableValue:
+    def execute(self, parent:'MylangeInterpreter', params:list[VariableValue],
+                includeMemory:bool=False, flags:int=0) -> VariableValue:
         from interpreter import MylangeInterpreter
         container = MylangeInterpreter(f"Funct\\{self.Name}")
         old_mem_keys:list[str] = []
@@ -56,7 +57,7 @@ class LanFunction:
             if (param[1] != LanScaffold.dynamic) and (params[i].Type != param[1]): 
                 raise Exception(f"Parameter given and expected do not match types! Expected {param[1]}, given {params[i].Type}")
             container.Booker.set(param[0], params[i])
-        Return = container.interpret(self.Code, True, self.MethodMasterClass)
+        Return = container.interpret(self.Code, True, self.MethodMasterClass, flags=flags)
         if Return is None:
             Return = VariableValue(LanType.nil())
         

@@ -251,7 +251,8 @@ class VariableTypeMethods:
         # returns: an array of the strings seperated by sep
         @staticmethod
         def split(_, var:VariableValue[str], sep:VariableValue[str]) -> VariableValue[list[VariableValue]]:
-            ParamChecker.EnsureIntegrety((sep, LanType.char()))
+            if not ParamChecker.EnsureIntegrety((sep, LanType.char())):
+                raise Exception()
             string:str = var.value
             val = [VariableValue(LanType.string(), part) for part in string.split(sep.value)]
             return VariableValue(LanType.array(), val)
@@ -265,8 +266,12 @@ class VariableTypeMethods:
             return VariableValue(LanType.array(), Return)
 
         @staticmethod
-        def toInteger(_, var:VariableValue) -> VariableValue:
-            return VariableValue(LanType.int(), int(var.value))
+        def toInteger(_, var:VariableValue[str]) -> VariableValue[int]:
+            return VariableValue[int](LanType.int(), int(var.value))
+        
+        @staticmethod
+        def len(_, var:VariableValue[str]) -> VariableValue[int]:
+            return VariableValue[int](LanType.int(), len(var.value))
     
     class Array:
         @staticmethod

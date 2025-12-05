@@ -3,11 +3,15 @@ class LanErrors:
     class MylangeError(Exception):
         message:str
         value:None
+        def __init__(self, msg:str="Unspecified", *args: object) -> None:
+            self.message = msg
+            super().__init__(*args)
         
     class ErrorWrapper(Exception):
         line:str
-        error:Exception
-        def __init__(self, line:str, error:Exception) -> None:
+        error:'LanErrors.MylangeError'
+        stack:list['LanErrors.MylangeError']
+        def __init__(self, line:str, error:'LanErrors.MylangeError') -> None:
             self.line = line
             self.error = error
             super().__init__()
@@ -19,7 +23,7 @@ class LanErrors:
             self.message = msg
             super().__init__(self.message)
 
-    class Break(MylangeError):
+    class Breaker(MylangeError):
         def __init__(self, msg="Used to break loops.", value=None):
             self.value = value
             self.message = msg

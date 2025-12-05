@@ -239,9 +239,8 @@ class LanType:
 class ParamChecker:
     @staticmethod
     def EnsureIntegrety(*params:tuple['VariableValue', LanType]) -> bool:
-        # for param in params:
-        #     if param[1] != param[0].typeid: 
-        #         raise Exception(f"[Type Validation] Type mismatch: Expected {LanScaffold.TypeNameArray()[param[1]]}, got {LanScaffold.TypeNameArray()[param[0].typeid]}.")
+        for param, ex_type in params:
+            if param.Type != ex_type: return False
         return True
 
     @staticmethod

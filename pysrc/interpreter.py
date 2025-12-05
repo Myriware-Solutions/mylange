@@ -1,5 +1,6 @@
 # IMPORT
 import re, json, copy, os
+from enum import IntFlag
 
 from lanregexes import ActualRegex
 from memory import MemoryBooker
@@ -159,6 +160,36 @@ class MatchBox:
             lan_cls = LanClass(cls_name, cls_body, self)
             self.Booker.SetClass(cls_name, lan_cls)
             return NIL_RETURN
+    class TryCatchStatement(LineMatcher):
+        pattern = ActualRegex.TryCatchStatement.value
+        @classmethod
+        def handle(cls, self:'MylangeInterpreter', m: re.Match) -> VariableValue | LanFunction | None:
+            safe_block = m.group(1)
+            exceptions_blocks_ms = [ActualRegex.ExceptionAsByStatement.value.match(item.strip()) for item in CodeCleaner.split_top_level_commas(m.group(2))]
+            handled_exceptions:dict[str,LanFunction] = {}
+            for exception_m in exceptions_blocks_ms:
+                if exception_m is None: continue
+                exception_name:str = exception_m.group(1); assert exception_name is not None
+                if exception_name in handled_exceptions: raise LanErrors.DuplicatePropertyError("Multiple Exceptions of same Handle")
+                exception_var:str|None = exception_m.group(2)
+                exception_logic:str = exception_m.group(3); assert exception_logic is not None
+                param_structure = {}
+                if exception_var:
+                    param_structure = {exception_var: LanType.string()}
+                e_funct = LanFunction("Catch", LanType.nil(), param_structure, exception_logic)
+                handled_exceptions[exception_name] = e_funct
+            try:
+                safe_block_funct = LanFunction("Try", LanType.nil(), {}, safe_block)
+                safe_block_funct.execute(self, [], includeMemory=True, flags=self.InterpretFlags.TRY_CATCH)
+            except LanErrors.ErrorWrapper as Error:
+                e_name = type(Error.error).__name__
+                if (e_name in handled_exceptions) or ("Exception" in handled_exceptions):
+                    if e_name not in handled_exceptions: e_name = "Exception"
+                    params = [VariableValue(LanType.string(), Error.error.message)] if len(handled_exceptions[e_name].Parameters) > 0 else []
+                    handled_exceptions[e_name].execute(self, params, includeMemory=True)
+                else: 
+                    raise Error
+            return NIL_RETURN
     class ForStatement(LineMatcher):
         pattern = ActualRegex.ForStatement.value
         @classmethod
@@ -198,7 +229,7 @@ class MatchBox:
             while vparam.value:
                 try:
                     while_loop_funct.execute(self, [], True)
-                except LanErrors.Break: break
+                except LanErrors.Breaker: break
                 except LanErrors.Continue: continue
             return NIL_RETURN
     class MethodCall(LineMatcher):
@@ -218,7 +249,7 @@ class MatchBox:
         @classmethod
         def handle(cls, self, m):
             self.echo("Break Called")
-            raise LanErrors.Break()
+            raise LanErrors.Breaker()
 
 # Main Mylange Class
 class MylangeInterpreter:
@@ -234,12 +265,12 @@ class MylangeInterpreter:
     def enable_echos(self) -> None:
         self.EchosEnables = True
     
-    def echo(self, text:str, origin:str="MyIn", indent:int=0, anoyance:int=0) -> None:
+    def echo(self, *args, origin:str="MyIn", indent:int=0, anoyance:int=0) -> None:
         if not self.EchosEnables: return
         if (anoyance > 6): return
         indent += self.BlockTree.count('/')
         indentation:str = '\t'*indent
-        print(f"{indentation}\033[36m[{self.LineNumber}:{origin}:{self.BlockTree}]\033[0m ", text)
+        print(f"{indentation}\033[36m[{self.LineNumber}:{origin}:{self.BlockTree}]\033[0m ", *args)
 
     def __init__(self, blockTree:str, startingLineNumber:int=0, startBlockCacheNumber=0, filePath:str|None=None) -> None:
         #print("\033[33m<Creating Interpreter Class>\033[0m")
@@ -269,24 +300,22 @@ class MylangeInterpreter:
         for i, line in enumerate(haystack.split("\n"), 1):
             if needle in line: Return.append(i)
         return Return
+    
+    class InterpretFlags(IntFlag):
+        TRY_CATCH = 1 << 0
 
-    def interpret(self, string:str, overrideClean:bool=False, objectMethodMaster:LanClass|None=None) -> VariableValue|None:
+    def interpret(self, string:str, overrideClean:bool=False, objectMethodMaster:LanClass|None=None, flags:int=0) -> VariableValue|None:
+        #print("INTERPRETING WITH FLAGS", flags)
         self.ObjectMethodMaster = objectMethodMaster
         try:
             return self.interpret_logic(string, overrideClean)
-        except LanErrors.ErrorWrapper as errorWrap: 
-            match errorWrap.error:
-                case LanErrors.Break():
-                    raise LanErrors.Break()
-                case LanErrors.MylangeError():
-                    print(f"Fatal Error: {errorWrap.error}"*AnsiColor.BRIGHT_RED + f"\n\ton line {self.get_index(errorWrap.line, string)}: {errorWrap.line}"*AnsiColor.RED)
-                    if self.EchosEnables: raise errorWrap.error
-                    raise LanErrors.Break()
+        except LanErrors.ErrorWrapper as errorWrap:
+            raise errorWrap
 
     def interpret_logic(self, string:str, overrideClean:bool=False) -> VariableValue:
         lines:list[str] = self.make_chucks(string, overrideClean, self.StartBlockCacheNumber)
         Return:VariableValue = VariableValue(LanType.nil(), None); matched:bool = False
-        for line in lines:
+        for line_num, line in enumerate(lines):
             try:
                 self.echo(line, "MyInLoop")
                 # Match the type of line
@@ -294,13 +323,14 @@ class MylangeInterpreter:
                     result = matcher.match(self, line)
                     if type(result) is VariableValue:
                         matched = True
-                        self.LineNumber += 1
+                        self.LineNumber = line_num
                         if (result.Type != LanScaffold.nil):
                             Return = result
                             break
                         elif matched:
                             break
-                if not matched: raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: {line}")
+                if not matched:
+                    raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: {line}")
             except LanErrors.MylangeError as error:
                 raise LanErrors.ErrorWrapper(line, error)
         return Return
@@ -406,7 +436,8 @@ class MylangeInterpreter:
     def get_method_aspects(self, string:str):
         if string.startswith("(") and string.endswith(")"):
             return (None, string[1:-1])
-        m = re.match(r"^([\w\[\]:]+) *(?:\((.*)\))?$", string, re.UNICODE); assert m is not None
+        m = re.match(r"^([\w\[\]:]+) *(?:\((.*)\))?$", string, re.UNICODE)
+        if m is None: raise LanErrors.MylangeError("Something when wrong trying to parse the method")
         return (m.group(1), m.group(2))
 
     def do_function_or_method(self, fromString:str) -> VariableValue:

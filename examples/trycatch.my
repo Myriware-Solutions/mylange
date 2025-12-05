@@ -1,0 +1,10 @@
+try {
+    str num => 9;
+
+    print("Something", e);
+    
+} catch Exception as e by {
+    print("Error");  
+}, MemoryMissingError as e by {
+    print("error2", e);
+};
