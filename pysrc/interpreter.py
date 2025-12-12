@@ -331,7 +331,7 @@ class MylangeInterpreter:
                         elif matched:
                             break
                 if not matched:
-                    raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: {line}")
+                    raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: '{line}'")
             except LanErrors.MylangeError as error:
                 raise LanErrors.ErrorWrapper(line, error)
         return Return
@@ -592,7 +592,7 @@ class CodeCleaner:
 
                         # remove all return lines, begining spaces, extra spaces, etc.
                         cleaned_block = re.sub(r"^ +", '', replaced_inner, flags=re.MULTILINE)
-                        cleaned_block = re.sub(r"\n", '', cleaned_block, flags=re.MULTILINE)
+                        cleaned_block = re.sub(r"\n", ' ', cleaned_block, flags=re.MULTILINE)
                         cleaned_block = re.sub(r" +", ' ', cleaned_block, flags=re.MULTILINE)
 
                         hex_key = f"0x{index_tracker['index']:X}"

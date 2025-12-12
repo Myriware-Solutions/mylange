@@ -120,24 +120,31 @@ class LanClass:
             p_init = RandomTypeConversions.convert(property_str.group(4), parent) if (property_str.group(4)) else VariableValue(p_typeid, None)
             self.set_property(accessability, p_name, p_init)
         # Methods
-        for method_str in method_strs:
-            assert method_str is not None
+        for method_str_ in method_strs:
+            if method_str_ is None: continue
+            at_defs_str     = method_str_.group(1)
+            access_mods_str = method_str_.group(2)
+            return_type_str = method_str_.group(3)
+            name_str        = method_str_.group(4)
+            parameters_str  = method_str_.group(5)
+            function_str    = method_str_.group(6)
             
-            access = sum(AttributeAccessabilities[modifier] for modifier in re.findall(r"[\w]+", method_str.group(1)))
+            at_defs:list[str] = re.findall(r"@\w+", at_defs_str) if at_defs_str else []
+            access = sum(AttributeAccessabilities[modifier] for modifier in re.findall(r"[\w]+", access_mods_str))
             
             method_params:dict[str, LanType]|None = None
             if access & AttributeAccessabilities.static: method_params = {}
             else: method_params = { "this": LanType(LanScaffold.this) }
             assert method_params is not None
             
-            for method_param_str in CodeCleaner.split_top_level_commas(method_str.group(4), stripReturns=True):
+            for method_param_str in CodeCleaner.split_top_level_commas(parameters_str, stripReturns=True):
                 sections = CodeCleaner.split_top_level_commas(method_param_str, " ", stripReturns=True)
                 if len(sections) != 2: raise Exception(f"Expected two parts from '{method_param_str}'")
                 method_params[sections[1]] = LanType.get_type_from_typestr(sections[0])
-            funct = LanFunction(method_str.group(3), 
-                LanType.get_type_from_typestr(method_str.group(2)),
-                method_params, parent.CleanCodeCache[method_str.group(5)], methodMasterClass=self)
-            self.set_method(access, method_str.group(3), funct)
+            funct = LanFunction(name_str, 
+                LanType.get_type_from_typestr(return_type_str),
+                method_params, parent.CleanCodeCache[function_str], methodMasterClass=self)
+            self.set_method(access, name_str, funct, at_defs)
     
     def set_property(self, accessability:int, name:str, value:VariableValue):
         Group = None
@@ -148,9 +155,11 @@ class LanClass:
         if name in Group.keys(): raise LanErrors.DuplicatePropertyError(name)
         Group[name] = value
 
-    def set_method(self, access:int, name:str, funct:LanFunction) -> int:
+    def set_method(self, access:int, name:str, funct:LanFunction, at_defs:list[str]) -> int:
         tup = LanFunction.GetFunctionHash(name, list(funct.Parameters.values()))
         funct.Access = access
+        if (tup in self._methods_registry) and ("@override" not in at_defs):
+            raise LanErrors.DuplicateMethodError(f"{self.Name}.{tup}")
         self._methods_registry[tup] = funct
         self.Parent.echo(f"Setting function: {name}, {access}, {funct}")
         return 0

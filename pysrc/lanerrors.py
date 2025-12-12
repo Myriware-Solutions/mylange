@@ -75,7 +75,7 @@ class LanErrors:
     class DuplicateMethodError(MylangeError):
         def __init__(self, msg="DuplicateMethodError-undefined_error_info", value=None):
             self.value = value
-            self.message = f"Trying to create another method with the same name: {msg}"
+            self.message = f"Trying to create another method with the same name and parameter types: {msg}"
             super().__init__(self.message)
     
     class DuplicatePropertyError(MylangeError):

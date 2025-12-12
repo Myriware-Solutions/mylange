@@ -1,3 +1,4 @@
+
 class Person has {
 
     public string First;
@@ -40,12 +41,15 @@ class Person has {
 
     public static def nil Bye(Person p) as {
         print("Goodbye " .. p:First .. " " .. p:Last .. "!");
-    }
-};
-
-class Friend has {
-
-    public def nil constructor() as {
-        print("Friend active");
     };
+    
+    @override
+    public static def nil Bye(Person p) as {};
 };
+
+// class Friend extends Person has {
+
+//     public def nil constructor() as {
+//         print("Friend active");
+//     };
+// };
