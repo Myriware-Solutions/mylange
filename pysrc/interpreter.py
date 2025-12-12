@@ -155,9 +155,14 @@ class MatchBox:
         pattern = ActualRegex.ClassStatement.value 
         @classmethod
         def handle(cls, self, m):
-            cls_name:str = m.group(1)
-            cls_body:str = m.group(2)
-            lan_cls = LanClass(cls_name, cls_body, self)
+            cls_name:str    = m.group(1)
+            cls_extends:str = m.group(2)
+            cls_body:str    = m.group(3)
+            lan_cls=None
+            if cls_extends:
+                base_class = self.Booker.GetClass(cls_extends).get_copy()
+                lan_cls = LanClass(cls_name, cls_body, self, extendsFrom=base_class)
+            else: lan_cls = LanClass(cls_name, cls_body, self)
             self.Booker.SetClass(cls_name, lan_cls)
             return NIL_RETURN
     class TryCatchStatement(LineMatcher):
@@ -318,6 +323,7 @@ class MylangeInterpreter:
         Return:VariableValue = VariableValue(LanType.nil(), None); matched:bool = False
         for line_num, line in enumerate(lines):
             try:
+                line = line.strip()
                 self.echo(line, "MyInLoop")
                 # Match the type of line
                 for matcher in all_matchers(LineMatcher):

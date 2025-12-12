@@ -42,14 +42,12 @@ class Person has {
     public static def nil Bye(Person p) as {
         print("Goodbye " .. p:First .. " " .. p:Last .. "!");
     };
-    
-    @override
-    public static def nil Bye(Person p) as {};
 };
 
-// class Friend extends Person has {
-
-//     public def nil constructor() as {
-//         print("Friend active");
-//     };
-// };
+class Friend extending Person has {
+    
+    @override
+    public static def nil Bye(Person p) as {
+        print("Goodbye, friend-" .. p:First .. "-" .. p:Last .. "!");
+    };
+};

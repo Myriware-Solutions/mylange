@@ -82,7 +82,7 @@ class LanClass:
     Import:bool
     
     _methods_registry:dict[str, LanFunction]
-    
+    _sub_cls_tree:list[str]
     
     Properties:dict[str, VariableValue]
     PrivateProperties:dict[str, VariableValue]
@@ -95,13 +95,21 @@ class LanClass:
         return r.split(';')
     def __str__(self):
         return "Class:" + self.Name
-    def __init__(self, name:str, codeBody:str, parent:'MylangeInterpreter', imported:bool=False):
+    def __init__(self, name:str, codeBody:str, parent:'MylangeInterpreter',
+                 imported:bool=False, extendsFrom:'LanClass|None'=None):
         self.Import = imported
         from interpreter import CodeCleaner
         # Setup defults
         self.Name = name
         self.Properties = {}; self.PrivateProperties = {}
         self._methods_registry = {}
+        self._sub_cls_tree = []
+        # Extend a base class, if provided
+        if extendsFrom:
+            self.Properties = extendsFrom.Properties
+            self.PrivateProperties = extendsFrom.PrivateProperties
+            self._methods_registry = extendsFrom._methods_registry
+            self._sub_cls_tree.append(f"ext:{extendsFrom.Name}")
         # Analyze code
         from interpreter import MylangeInterpreter
         self.Parent:MylangeInterpreter = parent
@@ -145,6 +153,9 @@ class LanClass:
                 LanType.get_type_from_typestr(return_type_str),
                 method_params, parent.CleanCodeCache[function_str], methodMasterClass=self)
             self.set_method(access, name_str, funct, at_defs)
+            
+    def get_copy(self) -> 'LanClass':
+        return copy.deepcopy(self)
     
     def set_property(self, accessability:int, name:str, value:VariableValue):
         Group = None
