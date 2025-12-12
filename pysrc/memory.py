@@ -46,8 +46,8 @@ class MemoryBooker:
     
     def GetFunction(self, name:str, paramTypes:list[LanType]) -> LanFunction:
         function_id = LanFunction.GetFunctionHash(name, paramTypes)
-        return self._function_registry[function_id]
-    
+        try: return self._function_registry[function_id]
+        except KeyError: raise LanErrors.MissingIndexError("Cannot find ")
     def SetClass(self, name:str, classStruct:LanClass) -> None:
         if name in self._class_registry: raise LanErrors.DuplicateMethodError(f"Class:{name}")
         self._class_registry[name] = classStruct
@@ -69,13 +69,14 @@ class MemoryBooker:
                 ext:str = ext
                 if ext.startswith(':'):
                     rest:str = ext[1:]
-                    if (varin.Type == LanScaffold.casting):
+                    if (varin.Type == LanScaffold.casting) or (varin.Type == LanScaffold.this):
                         assert type(varin.value) is LanClass
-                        if (varin.value.has_method(':', [LanType.set(), LanType.string()])):
-                            varin = varin.value.do_method(':', [VariableValue(LanType.string(), rest)], self.Parent) #TODO ENSURE THIS IS TRUE
+                        if (varin.value.has_method(':', [LanType.this(), LanType.string()])):
+                            varin = varin.value.do_method(':',
+                                [VariableValue(LanType.string(), rest)], self.Parent, internalOverride=(varin.Type == LanScaffold.this)) #TODO ENSURE THIS IS TRUE
                         else:
                             try:
-                                varin = varin.value.Properties[rest]
+                                varin = (varin.value.Properties|varin.value.PrivateProperties)[rest] if (varin.Type == LanScaffold.this) else varin.value.Properties[rest]
                             except KeyError:
                                 raise LanErrors.NotIndexableError("Could not find this Property on object. Is it or colon-method private?")
                     else:
@@ -87,7 +88,7 @@ class MemoryBooker:
                     index:int = int(ext[1:-1])
                     if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
-                        if (varin.value.has_method('[]', [LanType.int()])):
+                        if (varin.value.has_method('[]', [LanType.this(), LanType.int()])):
                             varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)], self.Parent) #AGAGAGAGAGAGAGGAGGA
                         else:
                             raise LanErrors.NotIndexableError("This class was not defined with a braket-index method, or that method is private.")

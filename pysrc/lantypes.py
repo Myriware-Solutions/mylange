@@ -11,13 +11,14 @@ T = TypeVar("T")
 
 import typing
 if typing.TYPE_CHECKING:
-    from lanclass import LanClass
+    from lanclass import LanClass, LanFunction
+    from interpreter import MylangeInterpreter
 
 # Type castisting for variables
 
 class RandomTypeConversions:
     @staticmethod
-    def convert(string:str, mylangeInterpreter) -> 'VariableValue':
+    def convert(string:str, mylangeInterpreter:'MylangeInterpreter') -> 'VariableValue':
         typeid, other = RandomTypeConversions.get_type(string)
         match (typeid):
             case LanScaffold.nil:
@@ -63,6 +64,13 @@ class RandomTypeConversions:
                     if var.Type not in ArchetypeTypeIds: 
                         ArchetypeTypeIds.append(var.Type)
                 return VariableValue(LanType(LanScaffold.set, ArchetypeTypeIds), ReturnS)
+            
+            case LanScaffold.callback:
+                from lanclass import LanFunction
+                parsed = mylangeInterpreter.format_parameter(string)
+                if type(parsed) is not LanFunction:
+                    raise LanErrors.WrongTypeExpectationError("Expected a function, got: "+str(parsed))
+                return VariableValue(LanType.callback(), parsed)
             case _:
                 raise Exception("Typeid is Unkown.")
 
@@ -117,6 +125,7 @@ class LanScaffold(IntEnum):
     casting   = 7
     dynamic   = 8
     this      = 9
+    callback  = 10
     
     @classmethod
     def from_string(cls, typestring:str) -> 'LanScaffold':
@@ -140,21 +149,30 @@ class LanScaffold(IntEnum):
             ["set"], 
             ["casting"], 
             ["dynamic"],
-            ["this"]
+            ["this"],
+            ["callback"],
+            ["union"]
         ]
     
 class LanType:
     
     TypeNum:LanScaffold
     Archetype:'list[LanType]|None'
+    OfClass:str|None = None
     
-    def __init__(self, typeNum:LanScaffold, archetype:'list[LanType]|None'=None) -> None:
+    def __init__(self, typeNum:LanScaffold, archetype:'list[LanType]|None'=None, ofClass:str|None=None) -> None:
         self.TypeNum = typeNum
         self.Archetype = archetype
+        self.OfClass = ofClass
+        # Casting's need to be attached to a class they are of.
+        if self.TypeNum == LanScaffold.casting:
+            if ofClass is None: raise Exception("Casting types must have a class attached to them.")
     
     def __eq__(self, other:object) -> bool:
         if type(other) is LanType:
             if self.TypeNum.value != other.TypeNum.value: return False
+            if (self.TypeNum.value == LanScaffold.casting) and \
+                (self.OfClass != other.OfClass): return False
             if (self.Archetype is None) and (other.Archetype is None): return True
             else: 
                 if (self.Archetype is None) and (other.Archetype is not None) or \
@@ -177,6 +195,8 @@ class LanType:
         return item in self.Archetype
     
     def __str__(self) -> str:
+        if self.TypeNum == LanScaffold.casting:
+            return f"casting({self.OfClass})"
         return f"{LanScaffold.TypeNameArray()[self.TypeNum][0]}" + (f"<{"|".join(str(g) for g in self.Archetype)}>" if self.Archetype else "")
     
     def __hash__(self) -> int:
@@ -207,14 +227,22 @@ class LanType:
     @staticmethod
     def set(): return LanType(LanScaffold.set)
     
+    @staticmethod
+    def this(): return LanType(LanScaffold.this)
+    
+    @staticmethod
+    def callback(): return LanType(LanScaffold.callback)
+    
     @classmethod
     def get_type_from_typestr(cls, string:str) -> 'LanType':
         reg = re.compile(r"(\w+)\s?(?:<([\w<>\s|,]+)>)?")
         m = reg.match(string); assert m is not None
+        ofClass:str|None=None
         try: base = LanScaffold.from_string(m.group(1))
         except LanErrors.UnknownTypeError:
             # It did not find a Mylange class, but it could be user-defined
             base = LanScaffold.casting
+            ofClass=string.strip()
         if m.group(2):
             from interpreter import CodeCleaner
             archetypette_strs = CodeCleaner.split_top_level_commas(m.group(2))
@@ -222,7 +250,7 @@ class LanType:
             for archetypette_str in archetypette_strs:
                 l.append(cls.get_type_from_typestr(archetypette_str))
             return LanType(base, l)
-        else: return LanType(base)
+        else: return LanType(base, ofClass=ofClass)
     
     @classmethod
     def make_param_type_dict(cls, string:str) -> dict[str, 'LanType']:

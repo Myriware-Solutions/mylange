@@ -1,9 +1,10 @@
 class Person has {
 
-    private string First;
-    private string Last;
+    public string First;
+    public string Last;
     private integer Age => 18;
     public int NotThere;
+    public bool hidden => true;
 
     public def nil constructor(string first, string last) as {
         print("Constructor called for %s %s!".format(first, last));
@@ -17,11 +18,15 @@ class Person has {
     public def nil Greet() as {
         string toprint => "Hello %s %s!";
         print(toprint.format(this:First, this:Last));
+        print("'" .. TypeOf(this, true) .. "'", this);
     };
 
-    public def string :(string index) as {
-        return this.at(index);
+    /[
+    public def dynamic :(string index) as {
+        return Casting.GetProperty(this, index);
+        //return this.at(index);
     };
+    ]/
     
     public def string [](integer index) as {
         return "HELLO" .. index;
@@ -31,5 +36,16 @@ class Person has {
         str string => name .. ", World!";
         print(string);
         return string;
+    };
+
+    public static def nil Bye(Person p) as {
+        print("Goodbye " .. p:First .. " " .. p:Last .. "!");
+    }
+};
+
+class Friend has {
+
+    public def nil constructor() as {
+        print("Friend active");
     };
 };

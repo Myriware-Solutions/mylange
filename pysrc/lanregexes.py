@@ -33,7 +33,7 @@ class ActualRegex(Enum):
     ClassStatement = re.compile(r"^class +([a-zA-Z]\w*) +has +(.*)", flags=re.UNICODE)
     PropertyStatement = re.compile(r"^ *([\w ]+)\s+(\w+)\s+(\w+)(?:\s*=>\s*(.+))?;?$", flags=re.UNICODE)
     NewClassObjectStatement = re.compile(r"new +([a-zA-Z]\w*) *\((.*)\)", flags=re.UNICODE)
-    ClassMethodStatement = re.compile(r"([\w ]+)\s*def\s*(\w+)\s*(\w+|:|\[\s*\])\s*\(([\w\s,.<>|]*)\)\s*as\s*(.*)", flags=re.UNICODE)
+    ClassMethodStatement = re.compile(r"([\w ]+)\s*def\s*([\w<|,>]+)\s+(\w+|:|\[\s*\])\s*\(([\w\s,.<>|]*)\)\s*as\s*(.*)", flags=re.UNICODE)
     # If/Else Statements
     IfStatementBlock = re.compile(r"(?:(?:if\s*.*)|(?:else\s+if\s*.*)|(?:else\s*.*))+", flags=re.UNICODE)
     IfStatementParts = re.compile(r"(if|else\s*if|else)\s*(?:\((.*?)\))?\s*then\s*(.*?)(?=if|else\s*if|else|$)", flags=re.UNICODE)
@@ -46,4 +46,6 @@ class ActualRegex(Enum):
     # Try/catch
     TryCatchStatement = re.compile(r"^ *try(.*?)catch(.*)$", flags=re.UNICODE)
     ExceptionAsByStatement = re.compile(r"(\w+)(?:\s+as\s+(\w+))?\s+by\s+(.*)", flags=re.UNICODE)
+    # Reference to function
+    FunctionReference = re.compile(r"^& *([\w]+) *@ *(?:{([\w,<|> ]+})|(\d+x\d+)) *$", flags=re.UNICODE)
 

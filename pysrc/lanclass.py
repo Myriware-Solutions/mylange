@@ -66,11 +66,11 @@ class LanFunction:
             for key in list(parent.Booker.Registry.keys()):
                 if key not in old_mem_keys: del parent.Booker.Registry[key]
         if (self.ReturnType != LanScaffold.dynamic) and (Return.Type != self.ReturnType):
-            raise LanErrors.WrongTypeExpectationError(f"Function is trying to return wrong value type. Expected '{self.ReturnType}', got '{Return.Type}'.")
+            raise LanErrors.WrongTypeExpectationError(f"Function \"{self.Name}\" is trying to return wrong value type. Expected '{self.ReturnType}', got '{Return.Type}'.")
         return Return
     
     def __str__(self) -> str:
-        return f"def {self.Name} ({", ".join([f"{key}: {tipe} " for key, tipe in self.Parameters.items()])})"
+        return f"def {self.ReturnType} {self.Name} ({", ".join([f"{key}: {tipe} " for key, tipe in self.Parameters.items()])})"
     
     def __repr__(self) -> str: return self.__str__()
 
@@ -165,13 +165,14 @@ class LanClass:
     def create(self, args):
         object_copy = copy.deepcopy(self)
         object_copy.do_method("constructor", args, self)
-        return VariableValue(LanType(LanScaffold.casting), object_copy)
+        return VariableValue(LanType(LanScaffold.casting, ofClass=self.Name), object_copy)
     
-    def props_to_set(self) -> VariableValue:
+    def props_to_set(self) -> VariableValue['LanClass']:
         full_properties = self.Properties | self.PrivateProperties
-        return VariableValue(LanType(LanScaffold.this), full_properties)
+        return VariableValue(LanType.this(), self)
     
-    def do_method(self, methodName:str, args:list[VariableValue], caller:'MylangeInterpreter|LanClass', statically:bool=False) -> VariableValue:
+    def do_method(self, methodName:str, args:list[VariableValue], caller:'MylangeInterpreter|LanClass',
+                  statically:bool=False, internalOverride:bool=False) -> VariableValue:
         full_parameters = [self.props_to_set()] + args
         method:LanFunction|None = None
         if statically: method = self.get_method(methodName, [arg.Type for arg in args])
@@ -182,6 +183,7 @@ class LanClass:
             if ((type(caller) is MylangeInterpreter) and (caller.ObjectMethodMaster is not None)
                 and caller.ObjectMethodMaster.Name == self.Name): pass
             elif (type(caller) is LanClass) and caller.Name == self.Name: pass
+            elif internalOverride: pass
             else: raise Exception("Cannot access this method. Are you internal?")
         Return = method.execute(self.Parent, full_parameters if not statically else args, False)
         self.Parent.echo(f"Doing method '{methodName}' with {full_parameters}")

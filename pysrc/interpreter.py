@@ -202,17 +202,18 @@ class MatchBox:
                 loop_var = loop_var_raw[1:-1]
             else:
                 loop_var = loop_var_raw
-            loop_over = self.format_parameter(m.group(2))
-            assert type(loop_over) is VariableValue
+            loop_over = self.format_parameter(m.group(2)); assert loop_over is not None
             ParamChecker.EnsureIntegrety((loop_over, LanType(LanScaffold.array)))
             loop_do_str:str = m.group(3)
             loop_var_dict:dict[str,LanType] = {}
             loop_funct = LanFunction("ForLoop", LanType.nil(), LanType.make_param_type_dict(loop_var), loop_do_str)
-            assert type(loop_over.value) is list
+            if loop_over.Type != LanScaffold.array:
+                raise LanErrors.WrongTypeExpectationError(f"Expected array<array>, got {loop_over.Type}")
             if unpack:
                 for item in loop_over.value: 
                     ParamChecker.EnsureIntegrety((item, LanType(LanScaffold.array)))
-                    assert type(item.value) is list[VariableValue]
+                    if loop_over.Type != LanScaffold.array:
+                        raise LanErrors.WrongTypeExpectationError(f"Expected array, got {loop_over.Type}")
                     _ = loop_funct.execute(self, item.value, True)
             else:
                 for item in loop_over.value: loop_funct.execute(self, [item], True)
@@ -358,10 +359,10 @@ class MylangeInterpreter:
             parts.append(self.format_parameter(part))
         return parts
     
-    def format_parameter(self, part:str) -> VariableValue|LanFunction|None:
+    def format_parameter(self, part:str) -> VariableValue|None:
         part = part.strip()
         self.echo(f"Consitering: {part}", anoyance=2)
-        Return = None
+        Return:VariableValue|None = None
         if RandomTypeConversions.get_type(part)[0] != 0:
             self.echo("Casted to RandomType", anoyance=2)
             Return = RandomTypeConversions.convert(part, self)
@@ -381,7 +382,8 @@ class MylangeInterpreter:
             paramDict = LanType.make_param_type_dict(m.group(2))
             blockCache = self.CleanCodeCache[m.group(3)]
             self.echo("Casted to Lambda function")
-            Return = LanFunction("lambda", returnType, paramDict, blockCache)
+            lambda_logic = LanFunction("lambda", returnType, paramDict, blockCache)
+            Return = VariableValue(LanType.callback(), lambda_logic)
         # New Object from Class #
         elif ActualRegex.NewClassObjectStatement.value.search(part):
             self.echo("Thinking of New Class Object")
@@ -401,6 +403,15 @@ class MylangeInterpreter:
             self.echo("Casted to Copytrace of variable.")
             ogvar = self.Booker.get(part[1:])
             Return = copy.deepcopy(ogvar)
+        # Function by name and types #
+        elif ActualRegex.FunctionReference.value.search(part):
+            m = ActualRegex.FunctionReference.value.match(part); assert m is not None
+            name = m.group(1); param_types_str = m.group(2) or m.group(3)
+            if ActualRegex.CachedBlock.value.search(param_types_str): 
+                param_types_str = self.CleanCodeCache[param_types_str]
+            param_types = [LanType.get_type_from_typestr(item) for item in CodeCleaner.split_top_level_commas(param_types_str)]
+            funct = self.Booker.GetFunction(name, param_types)
+            Return = VariableValue(LanType.callback(), funct)
         # Variable by Name #
         elif ActualRegex.VariableStructure.value.search(part) and (part not in self.SpecialValueWords):
             self.echo("Somethign is here: " + part)
@@ -413,10 +424,7 @@ class MylangeInterpreter:
             # work of the types of things being passed into the function.
             elif part in self.Booker.RegisteredFunctionNames:
                 self.echo("Casted to Function Name")
-                
-                funct = None
-                
-                raise NotImplementedError("Still working on this one.")
+                raise LanErrors.MylangeError("Cannot reference function by name alone. Use function call syntax.")
             else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
         # Failsafe #
         else:
@@ -514,7 +522,7 @@ class MylangeInterpreter:
             # Variable, most likely as a chain base
             Return = self.Booker.get(methodName)
         else:
-            print("OMM", self.ObjectMethodMaster)
+            # print("OMM", self.ObjectMethodMaster)
             raise LanErrors.MylangeError(f"Cannot find Function/Method/Class/Variable for method: {methodName}")
         self.echo(f"Returning: {Return}")
         return Return
