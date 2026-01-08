@@ -7,21 +7,53 @@ from lantypes import VariableValue, LanType, LanScaffold
 from lanclass import LanClass, LanFunction
 from enum import IntEnum, StrEnum
 
+import typing
+if typing.TYPE_CHECKING:
+    from interpreter import MylangeInterpreter
+
 class VarQuerryParts(StrEnum):
     AllMacthes = r"(?::[a-zA-Z]\w+)|(?:\[\d+\])"
 
 # Runtime Memory Manager, aka Booker
 class MemoryBooker:
     Registry:dict[str, VariableValue]
-    FunctionRegistry:dict[str, LanFunction]
-    ClassRegistry:dict[str, LanClass]
+    _function_registry:dict[str, LanFunction]
+    RegisteredFunctionNames:list[str]
+    _class_registry:dict[str, LanClass]
+    Parent:'MylangeInterpreter'
 
-    def __init__(self):
-        from interpreter import LanFunction
-        from lanclass import LanClass
+    def __init__(self, parent:'MylangeInterpreter'):
         self.Registry = {}
-        self.FunctionRegistry = {}
-        self.ClassRegistry = {}
+        self._function_registry = {}
+        self.RegisteredFunctionNames = []
+        self._class_registry = {}
+        self.Parent = parent
+    
+    def SetFunction(self, name:str, funct:LanFunction) -> int:
+        """Sets a function to the given name and function.
+
+        Args:
+            name (str): name of the function.
+            funct (LanFunction): Object containing the function's data.
+
+        Returns:
+            int: Hash of the function, used in the registery.
+        """
+        if name not in self.RegisteredFunctionNames: self.RegisteredFunctionNames.append(name)
+        function_hash = LanFunction.GetFunctionHash(name, [item for item in funct.Parameters.values()])
+        self._function_registry[function_hash] = funct
+        return 0
+    
+    def GetFunction(self, name:str, paramTypes:list[LanType]) -> LanFunction:
+        function_id = LanFunction.GetFunctionHash(name, paramTypes)
+        try: return self._function_registry[function_id]
+        except KeyError: raise LanErrors.MissingIndexError("Cannot find ")
+    def SetClass(self, name:str, classStruct:LanClass) -> None:
+        if name in self._class_registry: raise LanErrors.DuplicateMethodError(f"Class:{name}")
+        self._class_registry[name] = classStruct
+    
+    def GetClass(self, name:str) -> LanClass:
+        return self._class_registry[name]
 
     def set(self, varName:str, value:VariableValue, *flags:list[int]):
         self.Registry[varName] = value
@@ -37,24 +69,27 @@ class MemoryBooker:
                 ext:str = ext
                 if ext.startswith(':'):
                     rest:str = ext[1:]
-                    if (varin.Type == LanScaffold.casting):
+                    if (varin.Type == LanScaffold.casting) or (varin.Type == LanScaffold.this):
                         assert type(varin.value) is LanClass
-                        if (varin.value.has_method(':')):
-                            varin = varin.value.do_method(':', [VariableValue(LanType.string(), rest)])
+                        if (varin.value.has_method(':', [LanType.this(), LanType.string()])):
+                            varin = varin.value.do_method(':',
+                                [VariableValue(LanType.string(), rest)], self.Parent, internalOverride=(varin.Type == LanScaffold.this)) #TODO ENSURE THIS IS TRUE
                         else:
                             try:
-                                varin = varin.value.Properties[rest]
+                                varin = (varin.value.Properties|varin.value.PrivateProperties)[rest] if (varin.Type == LanScaffold.this) else varin.value.Properties[rest]
                             except KeyError:
                                 raise LanErrors.NotIndexableError("Could not find this Property on object. Is it or colon-method private?")
                     else:
                         assert type(varin.value) is dict
+                        if rest not in varin.value.keys():
+                            raise LanErrors.MissingIndexError(rest)
                         varin = varin.value[rest]
                 elif ext.startswith('[') and ext.endswith(']'):
                     index:int = int(ext[1:-1])
                     if (varin.Type == LanScaffold.casting):
                         assert type(varin.value) is LanClass
-                        if (varin.value.has_method('[]')):
-                            varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)])
+                        if (varin.value.has_method('[]', [LanType.this(), LanType.int()])):
+                            varin = varin.value.do_method('[]', [VariableValue(LanType.int(), index)], self.Parent) #AGAGAGAGAGAGAGGAGGA
                         else:
                             raise LanErrors.NotIndexableError("This class was not defined with a braket-index method, or that method is private.")
                     else:

@@ -1,0 +1,45 @@
+from Person import Person;
+from utils import something;
+
+/[ askdmaksmalsmdasl
+mdla
+ksk ]/
+
+class Main has {
+
+    public def int notmain() as {
+        print("this is NOT the main function");
+    };
+
+    def int notmaina() as {
+
+    };
+
+    /[
+    * This is the main function
+    ]/
+    public static def int main(array<str> args) as {
+        Person p => new Person("Anthony", "S");
+        Person p2 => new Person("Zach", "D");
+
+        p.Greet();
+
+        print(p:First);
+
+        array<str> Return => [p:First, p:Last];
+        //print(TypeOf(Return, true));
+
+        array<Person> ps => [p, p2];
+
+        array<Person> pf => ps.where(bool (Person pl) as { return pl:Last == "D"; });
+        print(pf);
+
+        Person.Hello(Main.Some() .. ", Anthony");
+
+        return 0;
+    };
+
+    private static def str Some() as {
+        return "Hello world";
+    };
+};

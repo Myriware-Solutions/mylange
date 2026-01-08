@@ -1,0 +1,13 @@
+array<int> nums => [1, 2, 3, 4, 5, 6];
+
+class Person has {
+
+
+    public def nil constructor(str name) as  {
+        this:Name => name
+    }
+
+    public def nil :() as {
+        return nil;
+    }
+}

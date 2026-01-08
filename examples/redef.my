@@ -1,9 +1,0 @@
-#! if 如果, then 那么, else 否则
-
-string имя => input("> ");
-
-如果 (имя == "Anthony") 那么 {
-    print("That's my name too");
-} 否则 {
-    print("I guess that's a cool name" + имя);
-}

@@ -3,7 +3,10 @@ import re, os, sys
 from interpreter import MylangeInterpreter
 from interface import AnsiColor
 from lantypes import LanType, LanScaffold
-from importlib.metadata import version
+from lanerrors import LanErrors
+from lantypes import VariableValue
+from version import GET_VERSION
+
 # Vars
 
 def remove_comments(string:str) -> str:
@@ -42,24 +45,36 @@ def ERRNO_PROMPT(amount:int) -> str:
 # Entry point for using the CLI
 linear:bool=False
 params:list[str] = sys.argv
-file_name:str|None=None
+file_path:str|None=None
 if (len(params) >= 2):
-    file_name = params[1]
+    file_path = params[1]
 else: linear = True
 
 if not linear:
-    structure:MylangeInterpreter = MylangeInterpreter("Main")
+    assert file_path is not None
+    structure:MylangeInterpreter = MylangeInterpreter("Main", filePath=file_path)
     if "--echoes" in params: structure.enable_echos()
-    assert file_name is not None
-    with open(file_name, "r", encoding='utf-8') as f:
+    with open(file_path, "r", encoding='utf-8') as f:
         code = remove_comments(f.read())
-        r = structure.interpret(code)
-        if r is None:
+        r = "Error"
+        try:
+            r = structure.interpret(code)
+            assert r is not None
+            if r.Type.TypeNum == LanScaffold.nil:
+                # Check to see if there is a Main class and method
+                if "Main" in structure.Booker._class_registry:
+                    main_param_types = LanType(LanScaffold.array, [LanType.string()])
+                    if structure.Booker.GetClass("Main").has_method("main", [main_param_types]):
+                        main_function = structure.Booker.GetClass("Main").get_method("main", [main_param_types])
+                        formated_args = [VariableValue[str](LanType.string(), arg) for arg in params[2:]]
+                        r = main_function.execute(structure, [VariableValue[list[VariableValue[str]]](main_param_types, formated_args)])
+            print(f"Returned with: {r}"*(AnsiColor.YELLOW if r=="Error" else AnsiColor.GREEN))
+        except LanErrors.ErrorWrapper as ew:
+            #ew.get_index(errorWrap.line, string)
+            print(f"Fatal Error: {ew.error}"*AnsiColor.BRIGHT_RED + f"\n\ton line {3}: {ew.line}"*AnsiColor.RED)
             print(f"Program Ended with Error"*AnsiColor.RED)
-        else: 
-            print(f"Returned with: {r}"*AnsiColor.GREEN)
 else:
-    print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {version("mylange")}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
+    print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {GET_VERSION()}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
     mi = MylangeInterpreter("Linear")
     running:bool = True
     input_str:str = ""
@@ -95,7 +110,11 @@ else:
                     case "*help":
                         print(HELP_MENU)
                     case _:
-                        res = mi.interpret(input_str)
+                        try: res = mi.interpret(input_str)
+                        except LanErrors.ErrorWrapper as error:
+                            print(("Error: "+error.error.message)*AnsiColor.RED)
+                            input_str = ""
+                            continue
                         if res is None:
                             print("This code snippet does not work. Try running '*help'."*AnsiColor.YELLOW)
                         elif (res.Type == LanScaffold.integer) and (res.value == 0):

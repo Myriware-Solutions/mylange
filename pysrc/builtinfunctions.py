@@ -1,12 +1,12 @@
 # IMPORTS
 import inspect
 
-from importlib.metadata import version
-
 from memory import MemoryBooker
 from lantypes import VariableValue, ParamChecker, LanType, LanScaffold
 from interface import AnsiColor
-from lanclass import LanFunction, LanClass
+from lanclass import LanFunction, LanClass, AttributeAccessabilities
+from version import GET_VERSION
+from lanerrors import LanErrors
 
 NIL_RETURN:VariableValue = VariableValue(LanType.nil(), None)
 
@@ -50,20 +50,24 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
 
     class Casting(MylangeBuiltinScaffold):
         @staticmethod
-        def PrintoutDetails(booker:MemoryBooker, castingVariable:VariableValue, isNameOfType:VariableValue=VariableValue(LanType.bool(), False)) -> None:
-            assert type(castingVariable.value) is str
-            casting = booker.ClassRegistry[castingVariable.value] if (isNameOfType.value == True) else castingVariable.value
+        def PrintoutDetails(booker:MemoryBooker, castingVariable:VariableValue, isNameOfType:VariableValue[bool]=VariableValue(LanType.bool(), False)) -> None:
+            # assert type(castingVariable.value) is str
+            casting = booker.GetClass(castingVariable.value) if (isNameOfType.value == True) else castingVariable.value
             assert type(casting) is LanClass
             print("== System.IO.PrintoutDetails =="*AnsiColor.BRIGHT_BLUE)
             #:dict[str, dict[str, dict[str, VariableValue|LanFunction]]]
+            public_static = AttributeAccessabilities.public|AttributeAccessabilities.static
+            private_static = AttributeAccessabilities.private|AttributeAccessabilities.static
             a:dict[str, dict[str, dict[str, VariableValue]] | dict[str, dict[str, LanFunction]]] = {
                 "Properties": {
                     "public": casting.Properties,
                     "private": casting.PrivateProperties
                 },
                 "Methods": {
-                    "public": casting.Methods,
-                    "private": casting.PrivateMethods
+                    "public static": {item.Name:item for item in list(casting._methods_registry.values()) if (item.Access & public_static)==public_static},
+                    "private static": {item.Name:item for item in list(casting._methods_registry.values()) if (item.Access & private_static)==private_static},
+                    "public": {item.Name:item for item in list(casting._methods_registry.values()) if (item.Access == AttributeAccessabilities.public)},
+                    "private": {item.Name:item for item in list(casting._methods_registry.values()) if (item.Access == AttributeAccessabilities.private)}
                 }
             }
             
@@ -75,12 +79,31 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
                         match attribute_type:
                             case "Properties":
                                 assert type(item) is VariableValue
-                                say = f"{accessability} {LanScaffold.TypeNameArray()[item.Type.TypeNum]} {name}" 
+                                say = f"{accessability} {item.Type} {name}" 
                             case "Methods":
                                 assert type(item) is LanFunction
                                 say = f"{accessability} {item.ReturnType} {name} ({(", ".join([f"{itype} {iname}" for iname, itype in item.Parameters.items()]))})"
                         print(say*AnsiColor.BRIGHT_BLUE)
             print("==            End            =="*AnsiColor.BRIGHT_BLUE)
+        
+        @staticmethod
+        def GetProperty(_, castedVar:VariableValue[LanClass], propertyName:VariableValue[str]) -> VariableValue:
+            # the value is either a "this" class, which should only be avaible internally,
+            # or a casted variable class.
+            dictionary:dict[str,VariableValue] = {}
+            if castedVar.Type == LanScaffold.this:
+                print("Getting property from 'this' class."*AnsiColor.BRIGHT_YELLOW)
+                dictionary = castedVar.value.Properties | castedVar.value.PrivateProperties
+            elif castedVar.Type == LanScaffold.casting:
+                print("Getting property from 'casting' class."*AnsiColor.BRIGHT_YELLOW)
+                dictionary = castedVar.value.Properties
+            else: raise Exception("Cannot do this with: ", castedVar)
+            
+            try:
+                #print("Getting property:", propertyName.value, "from", dictionary, "as", dictionary[propertyName.value])
+                return dictionary[propertyName.value]
+            except KeyError:
+                raise Exception(f"Could not find property '{propertyName.value}' on casting '{castedVar.value.Name if type(castedVar.value) is LanClass else "this"}': ", dictionary)
 
     class Set(MylangeBuiltinScaffold):
         @staticmethod
@@ -92,13 +115,13 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
     class System(MylangeBuiltinScaffold):
         @staticmethod
         def Version(_) -> None:
-            print(f"Mylange Version: {(version("mylange"))}"*AnsiColor.BRIGHT_BLUE)
+            print(f"Mylange Version: {GET_VERSION()}"*AnsiColor.BRIGHT_BLUE)
         
         class IO(MylangeBuiltinScaffold):
             @staticmethod
             def DumpCache(booker:MemoryBooker) -> None:
                 print("== :System.IO.DumpCache =="*AnsiColor.BRIGHT_BLUE)
-                items = booker.Registry.items() | booker.FunctionRegistry.items() | booker.ClassRegistry.items()
+                items = booker.Registry.items() | booker._function_registry.items() | booker._class_registry.items()
                 for k, v in items:
                     match v:
                         case VariableValue():
@@ -122,6 +145,11 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
                 file_name = fileName.value; assert type(file_name) is str
                 with open(file_name, 'r', encoding="utf-8") as f:
                     return VariableValue(LanType.string(), f.read())
+                
+            @staticmethod
+            def Write(_, fileName:VariableValue[str], content:VariableValue[str]) -> None:
+                with open(fileName.value, 'w', encoding="utf-8") as f:
+                    f.write(content.value)
             
             @classmethod
             def Execute(cls, _, fileName:VariableValue) -> VariableValue|None:
@@ -143,6 +171,8 @@ class VariableTypeMethods:
                 return VariableTypeMethods.Array
             case LanScaffold.set:
                 return VariableTypeMethods.Set
+            case LanScaffold.callback:
+                return VariableTypeMethods.Callback
             
     @staticmethod
     def is_applitable(typeid:int, method_name:str) -> bool:
@@ -164,7 +194,7 @@ class VariableTypeMethods:
         else:
             # User Defined Class
             assert type(var.value) is LanClass
-            return var.value.do_method(method, params)
+            return var.value.do_method(method, params, parent) #TODO: Ensure this is true
 
     class Integer:
         # Add a number to the variable,
@@ -247,7 +277,8 @@ class VariableTypeMethods:
         # returns: an array of the strings seperated by sep
         @staticmethod
         def split(_, var:VariableValue[str], sep:VariableValue[str]) -> VariableValue[list[VariableValue]]:
-            ParamChecker.EnsureIntegrety((sep, LanType.char()))
+            if not ParamChecker.EnsureIntegrety((sep, LanType.char())):
+                raise Exception()
             string:str = var.value
             val = [VariableValue(LanType.string(), part) for part in string.split(sep.value)]
             return VariableValue(LanType.array(), val)
@@ -261,8 +292,12 @@ class VariableTypeMethods:
             return VariableValue(LanType.array(), Return)
 
         @staticmethod
-        def toInteger(_, var:VariableValue) -> VariableValue:
-            return VariableValue(LanType.int(), int(var.value))
+        def toInteger(_, var:VariableValue[str]) -> VariableValue[int]:
+            return VariableValue[int](LanType.int(), int(var.value))
+        
+        @staticmethod
+        def len(_, var:VariableValue[str]) -> VariableValue[int]:
+            return VariableValue[int](LanType.int(), len(var.value))
     
     class Array:
         @staticmethod
@@ -288,18 +323,18 @@ class VariableTypeMethods:
         # callback: (function) A function that takes one parameter, and returns a boolean value of some evaluation.
         # [params]: (array?) Any values that should be passed into the function that would not be found locally within the function.
         @staticmethod
-        def where(parent, var:VariableValue, callback:LanFunction, paramsArray:VariableValue=VariableValue(LanType.array(), [])) -> VariableValue:
-            if callback.ReturnType != LanType.bool(): raise Exception("This function cannot be used, as it does not return boolean.")
+        def where(parent, var:VariableValue, callback:VariableValue[LanFunction], paramsArray:VariableValue=VariableValue(LanType.array(), [])) -> VariableValue:
+            if callback.value.ReturnType != LanType.bool(): raise Exception("This function cannot be used, as it does not return boolean.")
             items:list[VariableValue] = var.value
             params:list[VariableValue] = paramsArray.value
             Return = []
             for item in items:
-                valid:VariableValue = callback.execute(parent, [item] + params)
+                valid:VariableValue = callback.value.execute(parent, [item] + params)
                 if valid.value: Return.append(item)
             return VariableValue(LanType.array(), Return)
         
         @staticmethod
-        def find(parent, var:VariableValue, callback:LanFunction, paramsArray:VariableValue) -> VariableValue:
+        def find(parent, var:VariableValue, callback:VariableValue[LanFunction], paramsArray:VariableValue) -> VariableValue:
             whereArray = VariableTypeMethods.Array.where(parent, var, callback, paramsArray).value
             assert type(whereArray) is list[VariableValue]
             Result = True if len(whereArray) > 0 else False
@@ -341,6 +376,21 @@ class VariableTypeMethods:
         def has(_, var:VariableValue, item:VariableValue) -> VariableValue:
             
             return VariableValue(LanType.bool(), 1)
+        
+        @staticmethod
+        def forEach(parent, var:VariableValue[list[VariableValue]], callback:VariableValue[LanFunction],
+                    paramsArray:VariableValue=VariableValue(LanType.array(), [])) -> VariableValue:
+            is_returning = callback.value.ReturnType != LanType.nil()
+            Return:VariableValue[list] = VariableValue(LanType(LanScaffold.array, [callback.value.ReturnType]), [])
+            items:list[VariableValue] = var.value
+            params:list[VariableValue] = paramsArray.value
+            for item in items:
+                r = callback.value.execute(parent, [item] + params)
+                if is_returning:
+                    if r.Type not in Return.Type.Archetype: # type: ignore
+                        raise Exception(f"Type {r.Type} is not in the return type archetype {Return.Type.Archetype}")
+                    Return.value.append(r)
+            return Return if is_returning else NIL_RETURN
     
     class Set:
         @staticmethod
@@ -373,4 +423,12 @@ class VariableTypeMethods:
             for k, v in var.value.items():
                 Return.append(VariableValue(LanType.array(), [VariableValue(LanType.string(), k), v]))
             return VariableValue(LanType.array(), Return)
-
+        
+    class Callback:
+        @staticmethod
+        def call(parent, callback:VariableValue[LanFunction], *params:VariableValue) -> VariableValue:
+            if callback.value.ReturnType == LanType.nil():
+                callback.value.execute(parent, list(params))
+                return NIL_RETURN
+            else:
+                return callback.value.execute(parent, list(params))

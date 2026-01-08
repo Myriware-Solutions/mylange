@@ -1,7 +1,20 @@
 class LanErrors:
 
     class MylangeError(Exception):
-        pass
+        message:str
+        value:None
+        def __init__(self, msg:str="Unspecified", *args: object) -> None:
+            self.message = msg
+            super().__init__(*args)
+        
+    class ErrorWrapper(Exception):
+        line:str
+        error:'LanErrors.MylangeError'
+        stack:list['LanErrors.MylangeError']
+        def __init__(self, line:str, error:'LanErrors.MylangeError') -> None:
+            self.line = line
+            self.error = error
+            super().__init__()
 
     # Used as Program indicators, not errors
     class StopProgramExecution(MylangeError):
@@ -10,7 +23,7 @@ class LanErrors:
             self.message = msg
             super().__init__(self.message)
 
-    class Break(MylangeError):
+    class Breaker(MylangeError):
         def __init__(self, msg="Used to break loops.", value=None):
             self.value = value
             self.message = msg
@@ -24,9 +37,9 @@ class LanErrors:
 
     # Legit Errors
     class MemoryMissingError(MylangeError):
-        def __init__(self, msg="Could not find variable by name.", value=None):
+        def __init__(self, msg="MemoryMissingError-undefined_error_info", value=None):
             self.value = value
-            self.message = msg
+            self.message = f"Could not find variable by name: '{msg}'"
             super().__init__(self.message)
 
     class NotIndexableError(MylangeError):
@@ -62,11 +75,34 @@ class LanErrors:
     class DuplicateMethodError(MylangeError):
         def __init__(self, msg="DuplicateMethodError-undefined_error_info", value=None):
             self.value = value
-            self.message = f"Trying to create another method with the same name: {msg}"
+            self.message = f"Trying to create another method with the same name and parameter types: {msg}"
             super().__init__(self.message)
     
     class DuplicatePropertyError(MylangeError):
         def __init__(self, msg="DuplicatePropertyError-undefined_error_info", value=None):
             self.value = value
             self.message = f"Trying to create another property with the same name: {msg}"
+            super().__init__(self.message)
+            
+    class UnknownTypeError(MylangeError):
+        def __init__(self, msg:str="UnknownTypeError-undefined_error_info", value=None) -> None:
+            self.value = value
+            self.message = f"Unknown or undefined type used: {msg}"
+            super().__init__(self.message)
+            
+    class MissingIndexError(MylangeError):
+        def __init__(self, msg:str="MissingIndexError-undefined_error_info", value=None) -> None:
+            self.message = f"Could not retrive the index on object for: {msg}"
+            self.value = value
+            super().__init__(self.message)
+    
+    class MissingImportFileError(MylangeError):
+        def __init__(self, path:str="MissingImportError-undefined_error_info") -> None:
+            self.message = f"Could not find specified file import: {path}"
+            super().__init__(self.message)
+            
+    class NoValidOverloadError(MylangeError):
+        def __init__(self, func_name:str="NoValidOverloadError-undefined_error_info", value=None) -> None:
+            self.value = value
+            self.message = f"No valid overload found for function or method: {func_name}"
             super().__init__(self.message)

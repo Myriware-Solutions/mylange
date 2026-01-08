@@ -12,7 +12,7 @@ if (1 == 2) then {
 };
 
 if (1==3) then 
-    string MyName => "Anthony F Smith" 
+    string MyName => "Anthony F Smith";
 else 
     print("Nothiny HERE!");
 // Not seen

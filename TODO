@@ -3,9 +3,3 @@ Example:
 def +<(Class l, Class R) as {
     ...
 };
-
-This involves redoing how classes store function names,
-because I'd also like to add overloads to functions.
-
-Next, now that the new LanType system in integrated and works,
-function overloads may now be possible.

@@ -1,17 +1,16 @@
 # IMPORT
-import re
-import json
-import copy
+import re, json, copy, os
+from enum import IntFlag
 
 from lanregexes import ActualRegex
 from memory import MemoryBooker
 from lantypes import VariableValue, RandomTypeConversions, ParamChecker, LanType, LanScaffold
-#from booleanlogic import LanBooleanStatementLogic
 from lanarithmetic import LanArithmetics
 from builtinfunctions import MylangeBuiltinFunctions, VariableTypeMethods
 from lanerrors import LanErrors
 from interface import AnsiColor
 from lanclass import LanClass, LanFunction
+
 # GLOBALS
 FILE_EXT:str = ".my"
 NIL_RETURN:VariableValue = VariableValue(LanType.nil(), None)
@@ -50,23 +49,28 @@ class MatchBox:
         pattern = ActualRegex.ImportStatement.value
         @classmethod
         def handle(cls, self, m):
-            file_name:str = m.group(1) + FILE_EXT
-            self.echo(f"Importing from {file_name}", "Importer")
-            function_bloc:str = m.group(2)
-            functions = [funct.strip() for funct in function_bloc.split(",")]
+            prefix = os.path.dirname(self.FilePath) + "/" if self.FilePath else "./"
+            file_path:str = prefix + m.group(1)
+            if not re.match(rf"{FILE_EXT}$", file_path): file_path += FILE_EXT
+            file_path = re.sub(r"/+", "/", file_path.replace("\\", "/"))
+            self.echo(f"Importing from {file_path}", "Importer")
+            classes_block:str = m.group(2)
+            classes = [funct.strip() for funct in classes_block.split(",")]
             # Setup Vitual envirement
-            mi = MylangeInterpreter(f"Imports\\{m.group(1)}", startBlockCacheNumber=len([item for item in self.CleanCodeCache.keys() if item.startswith("0x")]))
-            mi.make_child_block(self, False)
-            with open(file_name, 'r') as imports_file:
-                mi.interpret(imports_file.read())
-                for funct_name in functions:
-                    self.echo(f"Processing import request: {funct_name}")
-                    if (funct_name in mi.Booker.FunctionRegistry):
-                        self.Booker.FunctionRegistry[funct_name] = mi.Booker.FunctionRegistry[funct_name]
-                    elif (funct_name in mi.Booker.ClassRegistry):
-                        self.Booker.ClassRegistry[funct_name] = mi.Booker.ClassRegistry[funct_name]
-                    else: raise LanErrors.MissingImportError()
-                self.CleanCodeCache.update(mi.CleanCodeCache)
+            mil = MylangeInterpreter(f"Imports\\{m.group(1)}")
+            if self.EchosEnables: mil.enable_echos()
+            try:
+                with open(file_path, 'r') as imports_file:
+                    mil.interpret(imports_file.read())
+                    for class_name in classes:
+                        self.echo(f"Processing import request: {class_name}")
+                        if class_name in mil.Booker._class_registry.keys():
+                            class_obj = mil.Booker.GetClass(class_name)
+                            class_obj.Import = True
+                            self.Booker.SetClass(class_name, class_obj)
+                        else: raise LanErrors.MissingImportError()
+            except FileNotFoundError:
+                raise LanErrors.MissingImportFileError(file_path)
             return NIL_RETURN
     class VariableDecalaration(LineMatcher):
         pattern = ActualRegex.VariableDecleration.value
@@ -99,7 +103,7 @@ class MatchBox:
             varextention:str = m.group(2)
             newvalue:str = m.group(3)
             #print(varname, varextention, newvalue)
-            if not self.Booker.find(varname): raise LanErrors.MemoryMissingError()
+            if not self.Booker.find(varname): raise LanErrors.MemoryMissingError(varname)
             fullvarname:str = varname + (varextention if (varextention != None) else "")
             var = self.Booker.get(fullvarname)
             castedvalue = self.format_parameter(newvalue)
@@ -137,21 +141,59 @@ class MatchBox:
         @classmethod
         def handle(cls, self, m):
             return_type = LanType.get_type_from_typestr(m.group(1))
-            function_name:str = m.group(2)
+            function_name = m.group(2); assert type(function_name) is str
             function_parameters_string = m.group(3)
+            function_parameters = LanType.make_param_type_dict(function_parameters_string)
             function_code_string = m.group(4)
-            funct = LanFunction(function_name, return_type, function_parameters_string, function_code_string)
-            self.Booker.FunctionRegistry[function_name] = funct
-            self.echo(f"Registered function by name: {function_name}")
+            funct = LanFunction(function_name, return_type, function_parameters, function_code_string)
+            
+            f_id = self.Booker.SetFunction(function_name, funct)
+            
+            self.echo(f"Registered function by name: {function_name}, {f_id}")
             return NIL_RETURN
     class ClassDeclaration(LineMatcher):
         pattern = ActualRegex.ClassStatement.value 
         @classmethod
         def handle(cls, self, m):
-            cls_name:str = m.group(1)
-            cls_body:str = m.group(2)
-            lan_cls = LanClass(cls_name, cls_body, self)
-            self.Booker.ClassRegistry[cls_name] = lan_cls
+            cls_name:str    = m.group(1)
+            cls_extends:str = m.group(2)
+            cls_body:str    = m.group(3)
+            lan_cls=None
+            if cls_extends:
+                base_class = self.Booker.GetClass(cls_extends).get_copy()
+                lan_cls = LanClass(cls_name, cls_body, self, extendsFrom=base_class)
+            else: lan_cls = LanClass(cls_name, cls_body, self)
+            self.Booker.SetClass(cls_name, lan_cls)
+            return NIL_RETURN
+    class TryCatchStatement(LineMatcher):
+        pattern = ActualRegex.TryCatchStatement.value
+        @classmethod
+        def handle(cls, self:'MylangeInterpreter', m: re.Match) -> VariableValue | LanFunction | None:
+            safe_block = m.group(1)
+            exceptions_blocks_ms = [ActualRegex.ExceptionAsByStatement.value.match(item.strip()) for item in CodeCleaner.split_top_level_commas(m.group(2))]
+            handled_exceptions:dict[str,LanFunction] = {}
+            for exception_m in exceptions_blocks_ms:
+                if exception_m is None: continue
+                exception_name:str = exception_m.group(1); assert exception_name is not None
+                if exception_name in handled_exceptions: raise LanErrors.DuplicatePropertyError("Multiple Exceptions of same Handle")
+                exception_var:str|None = exception_m.group(2)
+                exception_logic:str = exception_m.group(3); assert exception_logic is not None
+                param_structure = {}
+                if exception_var:
+                    param_structure = {exception_var: LanType.string()}
+                e_funct = LanFunction("Catch", LanType.nil(), param_structure, exception_logic)
+                handled_exceptions[exception_name] = e_funct
+            try:
+                safe_block_funct = LanFunction("Try", LanType.nil(), {}, safe_block)
+                safe_block_funct.execute(self, [], includeMemory=True, flags=self.InterpretFlags.TRY_CATCH)
+            except LanErrors.ErrorWrapper as Error:
+                e_name = type(Error.error).__name__
+                if (e_name in handled_exceptions) or ("Exception" in handled_exceptions):
+                    if e_name not in handled_exceptions: e_name = "Exception"
+                    params = [VariableValue(LanType.string(), Error.error.message)] if len(handled_exceptions[e_name].Parameters) > 0 else []
+                    handled_exceptions[e_name].execute(self, params, includeMemory=True)
+                else: 
+                    raise Error
             return NIL_RETURN
     class ForStatement(LineMatcher):
         pattern = ActualRegex.ForStatement.value
@@ -165,17 +207,18 @@ class MatchBox:
                 loop_var = loop_var_raw[1:-1]
             else:
                 loop_var = loop_var_raw
-            loop_over = self.format_parameter(m.group(2))
-            assert type(loop_over) is VariableValue
+            loop_over = self.format_parameter(m.group(2)); assert loop_over is not None
             ParamChecker.EnsureIntegrety((loop_over, LanType(LanScaffold.array)))
             loop_do_str:str = m.group(3)
             loop_var_dict:dict[str,LanType] = {}
             loop_funct = LanFunction("ForLoop", LanType.nil(), LanType.make_param_type_dict(loop_var), loop_do_str)
-            assert type(loop_over.value) is list
+            if loop_over.Type != LanScaffold.array:
+                raise LanErrors.WrongTypeExpectationError(f"Expected array<array>, got {loop_over.Type}")
             if unpack:
                 for item in loop_over.value: 
                     ParamChecker.EnsureIntegrety((item, LanType(LanScaffold.array)))
-                    assert type(item.value) is list[VariableValue]
+                    if loop_over.Type != LanScaffold.array:
+                        raise LanErrors.WrongTypeExpectationError(f"Expected array, got {loop_over.Type}")
                     _ = loop_funct.execute(self, item.value, True)
             else:
                 for item in loop_over.value: loop_funct.execute(self, [item], True)
@@ -192,7 +235,7 @@ class MatchBox:
             while vparam.value:
                 try:
                     while_loop_funct.execute(self, [], True)
-                except LanErrors.Break: break
+                except LanErrors.Breaker: break
                 except LanErrors.Continue: continue
             return NIL_RETURN
     class MethodCall(LineMatcher):
@@ -212,7 +255,7 @@ class MatchBox:
         @classmethod
         def handle(cls, self, m):
             self.echo("Break Called")
-            raise LanErrors.Break()
+            raise LanErrors.Breaker()
 
 # Main Mylange Class
 class MylangeInterpreter:
@@ -223,24 +266,26 @@ class MylangeInterpreter:
     LineNumber:int
     StartBlockCacheNumber:int
     EchosEnables:bool = False
+    FilePath:str|None
 
     def enable_echos(self) -> None:
         self.EchosEnables = True
     
-    def echo(self, text:str, origin:str="MyIn", indent:int=0, anoyance:int=0) -> None:
+    def echo(self, *args, origin:str="MyIn", indent:int=0, anoyance:int=0) -> None:
         if not self.EchosEnables: return
         if (anoyance > 6): return
         indent += self.BlockTree.count('/')
         indentation:str = '\t'*indent
-        print(f"{indentation}\033[36m[{self.LineNumber}:{origin}:{self.BlockTree}]\033[0m ", text)
+        print(f"{indentation}\033[36m[{self.LineNumber}:{origin}:{self.BlockTree}]\033[0m ", *args)
 
-    def __init__(self, blockTree:str, startingLineNumber:int=0, startBlockCacheNumber=0) -> None:
+    def __init__(self, blockTree:str, startingLineNumber:int=0, startBlockCacheNumber=0, filePath:str|None=None) -> None:
         #print("\033[33m<Creating Interpreter Class>\033[0m")
-        self.Booker = MemoryBooker()
+        self.Booker = MemoryBooker(self)
         self.CleanCodeCache = {}
         self.BlockTree = blockTree
         self.LineNumber = startingLineNumber
         self.StartBlockCacheNumber = startBlockCacheNumber
+        self.FilePath = filePath
 
     def make_child_block(self, parent:'MylangeInterpreter', shareMemory:bool) -> None:
         # IF these are set dirrectly, then they will allow
@@ -248,38 +293,53 @@ class MylangeInterpreter:
         # which may not be the funcionally wanted
         # if (booker != None): self.Booker = copy.deepcopy(booker)
         if (shareMemory): self.Booker = parent.Booker
+        for name, possible_import in parent.Booker._class_registry.items():
+            if possible_import.Import: self.Booker.SetClass(name, possible_import)
         self.CleanCodeCache = copy.deepcopy(parent.CleanCodeCache)
         self.echo("Converting to Child Process")
 
     ObjectMethodMaster:LanClass|None
+    
+    @staticmethod
+    def get_index(needle:str, haystack:str) -> list[int]:
+        Return = []
+        for i, line in enumerate(haystack.split("\n"), 1):
+            if needle in line: Return.append(i)
+        return Return
+    
+    class InterpretFlags(IntFlag):
+        TRY_CATCH = 1 << 0
 
-    def interpret(self, string:str, overrideClean:bool=False, objectMethodMaster:LanClass|None=None) -> VariableValue|None:
+    def interpret(self, string:str, overrideClean:bool=False, objectMethodMaster:LanClass|None=None, flags:int=0) -> VariableValue|None:
+        #print("INTERPRETING WITH FLAGS", flags)
         self.ObjectMethodMaster = objectMethodMaster
         try:
             return self.interpret_logic(string, overrideClean)
-        except LanErrors.Break: 
-            raise LanErrors.Break()
-        except LanErrors.MylangeError as exception:
-            print(f"Fatal Error: {exception}"*AnsiColor.BRIGHT_RED)
-            return None
+        except LanErrors.ErrorWrapper as errorWrap:
+            raise errorWrap
 
     def interpret_logic(self, string:str, overrideClean:bool=False) -> VariableValue:
         lines:list[str] = self.make_chucks(string, overrideClean, self.StartBlockCacheNumber)
         Return:VariableValue = VariableValue(LanType.nil(), None); matched:bool = False
-        for line in lines:
-            self.echo(line, "MyInLoop")
-            # Match the type of line
-            for matcher in all_matchers(LineMatcher):
-                result = matcher.match(self, line)
-                if type(result) is VariableValue:
-                    matched = True
-                    self.LineNumber += 1
-                    if (result.Type != LanScaffold.nil):
-                        Return = result
-                        break
-                    elif matched:
-                        break
-            if not matched: raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: {line}")
+        for line_num, line in enumerate(lines):
+            try:
+                line = line.strip()
+                self.echo(line, "MyInLoop")
+                # Match the type of line
+                for matcher in all_matchers(LineMatcher):
+                    result = matcher.match(self, line)
+                    if type(result) is VariableValue:
+                        matched = True
+                        self.LineNumber = line_num
+                        if (result.Type != LanScaffold.nil):
+                            Return = result
+                            break
+                        elif matched:
+                            break
+                if not matched:
+                    raise LanErrors.CannotFindQuerryError(f"Could not match self to anything: '{line}'")
+            except LanErrors.MylangeError as error:
+                raise LanErrors.ErrorWrapper(line, error)
         return Return
 
     def make_chucks(self, string:str, overrideClean:bool=False, starBlockCacheNumber=0) -> list[str]:
@@ -292,7 +352,7 @@ class MylangeInterpreter:
             string = string.replace(f"#!{redecl}", '')
         clean_code, clean_code_cache = CodeCleaner.cleanup_chunk(string, overrideClean, starBlockCacheNumber)
         self.CleanCodeCache.update(clean_code_cache)
-        if (self.BlockTree == "Main") and self.EchosEnables:
+        if self.EchosEnables:
             mem_blocks:list[str] = [f"{k} -> {v}" for k, v in self.CleanCodeCache.items()]
             joined_mem = '\n'.join(mem_blocks)
             print(f"[Code Lines]\n{clean_code}\n[Memory Units]\n{joined_mem}"*AnsiColor.BLUE)
@@ -305,10 +365,10 @@ class MylangeInterpreter:
             parts.append(self.format_parameter(part))
         return parts
     
-    def format_parameter(self, part:str) -> VariableValue|LanFunction|None:
+    def format_parameter(self, part:str) -> VariableValue|None:
         part = part.strip()
         self.echo(f"Consitering: {part}", anoyance=2)
-        Return = None
+        Return:VariableValue|None = None
         if RandomTypeConversions.get_type(part)[0] != 0:
             self.echo("Casted to RandomType", anoyance=2)
             Return = RandomTypeConversions.convert(part, self)
@@ -328,7 +388,8 @@ class MylangeInterpreter:
             paramDict = LanType.make_param_type_dict(m.group(2))
             blockCache = self.CleanCodeCache[m.group(3)]
             self.echo("Casted to Lambda function")
-            Return = LanFunction("lambda", returnType, paramDict, blockCache)
+            lambda_logic = LanFunction("lambda", returnType, paramDict, blockCache)
+            Return = VariableValue(LanType.callback(), lambda_logic)
         # New Object from Class #
         elif ActualRegex.NewClassObjectStatement.value.search(part):
             self.echo("Thinking of New Class Object")
@@ -336,7 +397,7 @@ class MylangeInterpreter:
             cls_name = m.group(1)
             cls_args = self.format_parameter_list(m.group(2))
             self.echo(f"Casted to New Class Object <{cls_name}>", anoyance=2)
-            Return = self.Booker.ClassRegistry[cls_name].create(cls_args)
+            Return = self.Booker.GetClass(cls_name).create(cls_args)
         # Cached #
         elif ActualRegex.CachedString.value.search(part):
             self.echo("Casted to Cached String", anoyance=2)
@@ -348,16 +409,28 @@ class MylangeInterpreter:
             self.echo("Casted to Copytrace of variable.")
             ogvar = self.Booker.get(part[1:])
             Return = copy.deepcopy(ogvar)
+        # Function by name and types #
+        elif ActualRegex.FunctionReference.value.search(part):
+            m = ActualRegex.FunctionReference.value.match(part); assert m is not None
+            name = m.group(1); param_types_str = m.group(2) or m.group(3)
+            if ActualRegex.CachedBlock.value.search(param_types_str): 
+                param_types_str = self.CleanCodeCache[param_types_str]
+            param_types = [LanType.get_type_from_typestr(item) for item in CodeCleaner.split_top_level_commas(param_types_str)]
+            funct = self.Booker.GetFunction(name, param_types)
+            Return = VariableValue(LanType.callback(), funct)
         # Variable by Name #
         elif ActualRegex.VariableStructure.value.search(part) and (part not in self.SpecialValueWords):
+            self.echo("Somethign is here: " + part)
             if self.Booker.find(part):
                 r = self.Booker.get(part)
                 self.echo(f"Casted to Variable: {r}", anoyance=2)
                 Return = r
             # Function #
-            elif part in self.Booker.FunctionRegistry.keys():
+            # TODO: This can no longer work soly off the name. It also need to 
+            # work of the types of things being passed into the function.
+            elif part in self.Booker.RegisteredFunctionNames:
                 self.echo("Casted to Function Name")
-                Return = self.Booker.FunctionRegistry[part]
+                raise LanErrors.MylangeError("Cannot reference function by name alone. Use function call syntax.")
             else: raise LanErrors.MemoryMissingError(f"Cannot find variable by name: {part}")
         # Failsafe #
         else:
@@ -377,7 +450,8 @@ class MylangeInterpreter:
     def get_method_aspects(self, string:str):
         if string.startswith("(") and string.endswith(")"):
             return (None, string[1:-1])
-        m = re.match(r"^([\w\[\]:]+) *(?:\((.*)\))?$", string, re.UNICODE); assert m is not None
+        m = re.match(r"^([\w\[\]:]+) *(?:\((.*)\))?$", string, re.UNICODE)
+        if m is None: raise LanErrors.MylangeError("Something when wrong trying to parse the method")
         return (m.group(1), m.group(2))
 
     def do_function_or_method(self, fromString:str) -> VariableValue:
@@ -391,26 +465,31 @@ class MylangeInterpreter:
             return f(self.Booker, *self.format_parameter_list(builtinMatch.group(2)))
         # First, break into method chain
         method_chain:list[tuple[str|None,str]] = [self.get_method_aspects(i) for i in CodeCleaner.split_top_level_commas(fromString.strip(), '.')]
-        working_var:VariableValue|LanFunction|None = None
+        working_var:VariableValue|LanFunction|LanClass|None = None
         for i, chain_link in enumerate(method_chain):
             #print(chain_link, working_var, type(working_var))
             if chain_link[0] is None:
                 working_var = self.format_parameter(chain_link[1])
             else:
                 formatedParams = self.format_parameter_list(chain_link[1]) if chain_link[1] != None else []
-                if (working_var is not None) and (type(working_var) is not VariableValue): raise LanErrors.MylangeError(f"Expected Variable value, got {type(working_var)} for '{working_var}'")
-                working_var = self.evalute_method(working_var, chain_link[0], formatedParams, i)
+                if type(working_var) is LanClass:
+                    working_var = working_var.do_method(chain_link[0], formatedParams, self, True) #TODO AHAGAHGAHG
+                elif (working_var is not None) and (type(working_var) is not VariableValue):
+                    raise LanErrors.MylangeError(f"Expected Variable value, got {type(working_var)} for '{working_var}'")
+                else: working_var = self.evalute_method(working_var, chain_link[0], formatedParams, i)
         assert type(working_var) is VariableValue
         return working_var
         
-    def evalute_method(self, base:VariableValue|None, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|None:
+    def evalute_method(self, base:VariableValue|LanClass|None, methodName:str, methodParameters:list[VariableValue], chainIndex:int) -> VariableValue|LanFunction|LanClass|None:
         # Create Virtual Workspace
-        Return:VariableValue|LanFunction|None = None
+        Return:VariableValue|LanFunction|LanClass|None = None
         self.echo(f"Working chain -{chainIndex}-: {methodName}; {methodParameters}")
-        if (base != None) and (base.Type == LanScaffold.casting):
+        if type(base) is LanClass:
+            print("CHINA")
+        elif type(base) is VariableValue and (base != None) and (base.Type == LanScaffold.casting):
             self.echo("Accessing Casting method")
             b = base.value; assert type(b) is LanClass
-            Return = b.do_method(methodName, methodParameters)
+            Return = b.do_method(methodName, methodParameters, self) #TODO: Make sure this is right to case
         elif (RandomTypeConversions.convert(methodName, self).Type != LanScaffold.nil) and chainIndex == 0:
             # A Random Type Instance, at the base
             Return = RandomTypeConversions.convert(methodName, self)
@@ -421,19 +500,36 @@ class MylangeInterpreter:
         elif isinstance(base, VariableValue) and (VariableTypeMethods.is_applitable(base.Type.TypeNum, methodName)):
             # Mylange type base method
             Return = VariableTypeMethods.fire_variable_method(self, methodName, base, methodParameters)
-        elif (methodName in self.Booker.FunctionRegistry.keys()) and chainIndex == 0:
+
+        
+
+        elif (methodName in self.Booker.RegisteredFunctionNames) and chainIndex == 0:
             # User-defined function
-            Return = self.Booker.FunctionRegistry[methodName].execute(self, methodParameters)
-        elif (methodName in self.Booker.ClassRegistry.keys()) and chainIndex == 0:
+            types = [item.Type for item in methodParameters]
+            funct = self.Booker.GetFunction(methodName, types)
+            Return = funct.execute(self, methodParameters)
+            pass
+            
+            
+            
+            
+        elif (methodName in self.Booker._class_registry.keys()) and chainIndex == 0:
             #TODO: User-defined static method
-            raise NotImplementedError()
+            Return = self.Booker.GetClass(methodName)
+        elif (self.ObjectMethodMaster and (methodName == self.ObjectMethodMaster.Name)) and chainIndex == 0:
+            # Referencing a static method within the class
+            Return = self.ObjectMethodMaster
+        
+        
         elif (self.get_cached_reference(methodName) != None) and chainIndex == 0:
             # A Random Type Instance, but cached
             Return = VariableValue(LanType.string(), self.get_cached_reference(methodName))
         elif (self.Booker.find(methodName)) and chainIndex == 0:
             # Variable, most likely as a chain base
             Return = self.Booker.get(methodName)
-        else: raise Exception(f"Cannot find Function/Method/Class/Variable for method: {methodName}")
+        else:
+            # print("OMM", self.ObjectMethodMaster)
+            raise LanErrors.MylangeError(f"Cannot find Function/Method/Class/Variable for method: {methodName}")
         self.echo(f"Returning: {Return}")
         return Return
     
@@ -502,7 +598,7 @@ class CodeCleaner:
 
                         # remove all return lines, begining spaces, extra spaces, etc.
                         cleaned_block = re.sub(r"^ +", '', replaced_inner, flags=re.MULTILINE)
-                        cleaned_block = re.sub(r"\n", '', cleaned_block, flags=re.MULTILINE)
+                        cleaned_block = re.sub(r"\n", ' ', cleaned_block, flags=re.MULTILINE)
                         cleaned_block = re.sub(r" +", ' ', cleaned_block, flags=re.MULTILINE)
 
                         hex_key = f"0x{index_tracker['index']:X}"
@@ -561,8 +657,8 @@ class CodeCleaner:
     BlockEndings = [')', ']', '}']
 
     @staticmethod
-    def split_top_level_commas(s, comma=',', additionalBrackets:list[tuple[str,str]]=[]) -> list[str]:
-        result = []
+    def split_top_level_commas(s, comma=',', additionalBrackets:list[tuple[str,str]]=[], stripReturns:bool=False) -> list[str]:
+        result:list[str] = []
         depth = 0
         current = []
 
@@ -580,6 +676,9 @@ class CodeCleaner:
         if current:
             result.append(''.join(current))
 
+        if stripReturns:
+            for i, res in enumerate(result): result[i] = res.strip()
+        
         return result
 
 # Custom JSON Encoder

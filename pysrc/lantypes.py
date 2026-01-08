@@ -1,20 +1,24 @@
 # IMPORTS
-from enum import IntEnum, Enum, unique
+from enum import IntEnum, Enum, unique, auto
 from lanregexes import ActualRegex
 import re
 from typing import Generic, TypeVar
+
+from lanerrors import LanErrors
+
 T = TypeVar("T")
 #type VariableValueLike = None|bool|int|str|list['VariableValue']|dict[str,'VariableValue']|'LanClass'
 
 import typing
 if typing.TYPE_CHECKING:
-    from lanclass import LanClass
+    from lanclass import LanClass, LanFunction
+    from interpreter import MylangeInterpreter
 
 # Type castisting for variables
 
 class RandomTypeConversions:
     @staticmethod
-    def convert(string:str, mylangeInterpreter) -> 'VariableValue':
+    def convert(string:str, mylangeInterpreter:'MylangeInterpreter') -> 'VariableValue':
         typeid, other = RandomTypeConversions.get_type(string)
         match (typeid):
             case LanScaffold.nil:
@@ -60,6 +64,13 @@ class RandomTypeConversions:
                     if var.Type not in ArchetypeTypeIds: 
                         ArchetypeTypeIds.append(var.Type)
                 return VariableValue(LanType(LanScaffold.set, ArchetypeTypeIds), ReturnS)
+            
+            case LanScaffold.callback:
+                from lanclass import LanFunction
+                parsed = mylangeInterpreter.format_parameter(string)
+                if type(parsed) is not LanFunction:
+                    raise LanErrors.WrongTypeExpectationError("Expected a function, got: "+str(parsed))
+                return VariableValue(LanType.callback(), parsed)
             case _:
                 raise Exception("Typeid is Unkown.")
 
@@ -113,12 +124,14 @@ class LanScaffold(IntEnum):
     set       = 6
     casting   = 7
     dynamic   = 8
+    this      = 9
+    callback  = 10
     
     @classmethod
     def from_string(cls, typestring:str) -> 'LanScaffold':
         for i, aliases in enumerate(cls.TypeNameArray()):
             if typestring in aliases: return LanScaffold(i)
-        raise Exception(f"Could not find type: {typestring}")
+        raise LanErrors.UnknownTypeError(typestring)
 
     @classmethod
     def to_string_name(cls, typeid:int) -> str:
@@ -135,21 +148,31 @@ class LanScaffold(IntEnum):
             ["array", "arr"], 
             ["set"], 
             ["casting"], 
-            ["dynamic"]
+            ["dynamic"],
+            ["this"],
+            ["callback"],
+            ["union"]
         ]
     
 class LanType:
     
     TypeNum:LanScaffold
     Archetype:'list[LanType]|None'
+    OfClass:str|None = None
     
-    def __init__(self, typeNum:LanScaffold, archetype:'list[LanType]|None'=None) -> None:
+    def __init__(self, typeNum:LanScaffold, archetype:'list[LanType]|None'=None, ofClass:str|None=None) -> None:
         self.TypeNum = typeNum
         self.Archetype = archetype
+        self.OfClass = ofClass
+        # Casting's need to be attached to a class they are of.
+        if self.TypeNum == LanScaffold.casting:
+            if ofClass is None: raise Exception("Casting types must have a class attached to them.")
     
     def __eq__(self, other:object) -> bool:
         if type(other) is LanType:
             if self.TypeNum.value != other.TypeNum.value: return False
+            if (self.TypeNum.value == LanScaffold.casting) and \
+                (self.OfClass != other.OfClass): return False
             if (self.Archetype is None) and (other.Archetype is None): return True
             else: 
                 if (self.Archetype is None) and (other.Archetype is not None) or \
@@ -172,7 +195,12 @@ class LanType:
         return item in self.Archetype
     
     def __str__(self) -> str:
+        if self.TypeNum == LanScaffold.casting:
+            return f"casting({self.OfClass})"
         return f"{LanScaffold.TypeNameArray()[self.TypeNum][0]}" + (f"<{"|".join(str(g) for g in self.Archetype)}>" if self.Archetype else "")
+    
+    def __hash__(self) -> int:
+        return hash(tuple(item for item in (([self.TypeNum] + self.Archetype) if self.Archetype else [self.TypeNum])))
     
     # def __repr__(self) -> str:
     #     return self.__str__()
@@ -199,11 +227,22 @@ class LanType:
     @staticmethod
     def set(): return LanType(LanScaffold.set)
     
+    @staticmethod
+    def this(): return LanType(LanScaffold.this)
+    
+    @staticmethod
+    def callback(): return LanType(LanScaffold.callback)
+    
     @classmethod
     def get_type_from_typestr(cls, string:str) -> 'LanType':
         reg = re.compile(r"(\w+)\s?(?:<([\w<>\s|,]+)>)?")
         m = reg.match(string); assert m is not None
-        base = LanScaffold.from_string(m.group(1))
+        ofClass:str|None=None
+        try: base = LanScaffold.from_string(m.group(1))
+        except LanErrors.UnknownTypeError:
+            # It did not find a Mylange class, but it could be user-defined
+            base = LanScaffold.casting
+            ofClass=string.strip()
         if m.group(2):
             from interpreter import CodeCleaner
             archetypette_strs = CodeCleaner.split_top_level_commas(m.group(2))
@@ -211,25 +250,25 @@ class LanType:
             for archetypette_str in archetypette_strs:
                 l.append(cls.get_type_from_typestr(archetypette_str))
             return LanType(base, l)
-        else: return LanType(base)
-        
+        else: return LanType(base, ofClass=ofClass)
+    
     @classmethod
     def make_param_type_dict(cls, string:str) -> dict[str, 'LanType']:
-        reg = re.compile(r"(?:([\w<>\s|,]+))?\s+(\w+)")
+        #reg = re.compile(r"(?:([\w<>\s|,]+))?\s+(\w+)")
+        reg = re.compile(r"([\w ]+[\w<>,| ]+) +(\w+)", flags=re.UNICODE)
         Return:dict[str, LanType] = {}
         from interpreter import CodeCleaner
         entries = CodeCleaner.split_top_level_commas(string, additionalBrackets=[('<','>')])
         for entry in entries:
-            m = reg.match(entry); assert m is not None
+            m = reg.match(entry.strip()); assert m is not None
             Return[m.group(2)] = cls.get_type_from_typestr(m.group(1))
         return Return
 
 class ParamChecker:
     @staticmethod
     def EnsureIntegrety(*params:tuple['VariableValue', LanType]) -> bool:
-        # for param in params:
-        #     if param[1] != param[0].typeid: 
-        #         raise Exception(f"[Type Validation] Type mismatch: Expected {LanScaffold.TypeNameArray()[param[1]]}, got {LanScaffold.TypeNameArray()[param[0].typeid]}.")
+        for param, ex_type in params:
+            if param.Type != ex_type: return False
         return True
 
     @staticmethod
@@ -272,6 +311,9 @@ class VariableValue(Generic[T]):
                 Return= f"<{self.value}@{self.Type}>"
         if withPrefix: return f"{str(self.Type)} {Return}"
         return Return
+    
+    def __repr__(self) -> str:
+        return self.__str__()
     
     def isof(self, type:LanType) -> bool:
         return self.Type == type

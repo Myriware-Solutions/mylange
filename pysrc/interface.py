@@ -10,8 +10,8 @@ class EffectString:
         self.Color = color
     def __repr__(self) -> str:
         return f"{self.Color.value}{self.String}{AnsiColor.RESET.value}"
-    def __add__(self, other:str) -> str:
-        return self.__repr__() + other
+    def __add__(self, other:'EffectString|str') -> str:
+        return self.__repr__() + str(other)
     def __radd__(self, other:str) -> str:
         return other + self.__repr__()
 

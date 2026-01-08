@@ -1,11 +1,12 @@
 {
+    //Je sais commont!
     <
         mode:4;
         schema:<key>,int,char;   /[<key>: key for the column]/
         keys-row:0
     >
     _,       (age), (gender);     /[Keys for the rows]/
-    Anthony, 18+1,    'm';
+    Anthony, 18+1,  'm';
     James,   18,    'm';
     Rose,    10,    'f';
     Jose,    10,    'm'

@@ -1,0 +1,24 @@
+class Overloads has {
+
+    public def nil constructor() as {
+        // Do nothing
+    };
+
+    public static def nil what(int thing) as {
+        print("This was registered as an INT: " .. thing.toString());
+    };
+
+    public def nil what(str thing) as {
+        print("This was registered as a STRING: " .. thing);
+        
+    };
+};
+
+
+Overloads.what(9);
+
+Overloads instance => new Overloads();
+instance.what("Hello there!");
+
+// Should error
+Overloads.what("STRING");
