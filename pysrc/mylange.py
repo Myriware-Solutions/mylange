@@ -46,7 +46,7 @@ def ERRNO_PROMPT(amount:int) -> str:
 linear:bool=False
 params:list[str] = sys.argv
 file_path:str|None=None
-if (len(params) >= 2):
+if (len(params) >= 2) and (not params[1].startswith("--")):
     file_path = params[1]
 else: linear = True
 

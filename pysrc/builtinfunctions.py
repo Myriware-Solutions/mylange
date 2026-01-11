@@ -1,5 +1,5 @@
 # IMPORTS
-import inspect
+import inspect, sys
 
 from memory import MemoryBooker
 from lantypes import VariableValue, ParamChecker, LanType, LanScaffold
@@ -16,14 +16,17 @@ class MylangeBuiltinScaffold:
         return cls.get_method(class_method_path) != None
     @classmethod
     def get_method(cls, class_method_path:list[str]):
-        first:str = class_method_path[0]
-        if hasattr(cls, first):
-            attribute = getattr(cls, first)
-            if inspect.isfunction(attribute) or inspect.ismethod(attribute):
-                return attribute
-            elif isinstance(attribute, type):
-                return attribute.get_method(class_method_path[1:])
-        return None
+        try:
+            first:str = class_method_path[0]
+            if hasattr(cls, first):
+                attribute = getattr(cls, first)
+                if inspect.isfunction(attribute) or inspect.ismethod(attribute):
+                    return attribute
+                elif isinstance(attribute, type):
+                    return attribute.get_method(class_method_path[1:])
+            return None
+        except IndexError:
+            raise LanErrors.MylangeError("Builtin function not found!")
 
 
 class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
@@ -138,26 +141,27 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
             def Println(_, *params:VariableValue) -> None:
                 for param in list(params): print(param.to_string())
 
-        class File(MylangeBuiltinScaffold):
+        if "--safemode" not in sys.argv:    
+            class File(MylangeBuiltinScaffold):
 
-            @staticmethod
-            def Read(_, fileName:VariableValue) -> VariableValue:
-                file_name = fileName.value; assert type(file_name) is str
-                with open(file_name, 'r', encoding="utf-8") as f:
-                    return VariableValue(LanType.string(), f.read())
+                @staticmethod
+                def Read(_, fileName:VariableValue) -> VariableValue:
+                    file_name = fileName.value; assert type(file_name) is str
+                    with open(file_name, 'r', encoding="utf-8") as f:
+                        return VariableValue(LanType.string(), f.read())
+                    
+                @staticmethod
+                def Write(_, fileName:VariableValue[str], content:VariableValue[str]) -> None:
+                    with open(fileName.value, 'w', encoding="utf-8") as f:
+                        f.write(content.value)
                 
-            @staticmethod
-            def Write(_, fileName:VariableValue[str], content:VariableValue[str]) -> None:
-                with open(fileName.value, 'w', encoding="utf-8") as f:
-                    f.write(content.value)
-            
-            @classmethod
-            def Execute(cls, _, fileName:VariableValue) -> VariableValue|None:
-                content = cls.Read(None, fileName)
-                from interpreter import MylangeInterpreter
-                virtual_engine = MylangeInterpreter("SysExe")
-                assert type(content.value) is str
-                return virtual_engine.interpret(content.value)
+                @classmethod
+                def Execute(cls, _, fileName:VariableValue) -> VariableValue|None:
+                    content = cls.Read(None, fileName)
+                    from interpreter import MylangeInterpreter
+                    virtual_engine = MylangeInterpreter("SysExe")
+                    assert type(content.value) is str
+                    return virtual_engine.interpret(content.value)
 
 class VariableTypeMethods:
     @staticmethod
