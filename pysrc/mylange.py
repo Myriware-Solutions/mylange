@@ -75,6 +75,8 @@ if not linear:
             print(f"Program Ended with Error"*AnsiColor.RED)
 else:
     print(f"Welcome to Mylange Linear Interface!\nRunning Mylange verison {GET_VERSION()}\nUse CTRL+C or \"return 0\" to close the interpreter."*AnsiColor.CYAN)
+    if "--safemode" in sys.argv:
+        print("Warning: Safemode is active. This MLI Instance cannot read/write to the system.")   
     mi = MylangeInterpreter("Linear")
     running:bool = True
     input_str:str = ""

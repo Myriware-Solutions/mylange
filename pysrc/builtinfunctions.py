@@ -35,17 +35,6 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
         for param in list(params): print(param.to_string())
     
     @staticmethod
-    def load(_, filePath:VariableValue) -> VariableValue|None:
-        from interpreter import MylangeInterpreter
-        
-        structure:MylangeInterpreter = MylangeInterpreter("Main")
-        print("Found here")
-        assert type(filePath.value) is str
-        with open(filePath.value, mode="r", encoding='utf-8') as f:
-            r = structure.interpret(f.read())
-            return r
-    
-    @staticmethod
     def TypeOf(_, var:VariableValue, asString:VariableValue=VariableValue(LanType.bool(), False)) -> VariableValue:
         if asString.value == True:
             return VariableValue(LanType.string(), str(var.Type))
@@ -162,6 +151,17 @@ class MylangeBuiltinFunctions(MylangeBuiltinScaffold):
                     virtual_engine = MylangeInterpreter("SysExe")
                     assert type(content.value) is str
                     return virtual_engine.interpret(content.value)
+                
+                @staticmethod
+                def Load(_, filePath:VariableValue) -> VariableValue|None:
+                    from interpreter import MylangeInterpreter
+                    
+                    structure:MylangeInterpreter = MylangeInterpreter("Main")
+                    print("Found here")
+                    assert type(filePath.value) is str
+                    with open(filePath.value, mode="r", encoding='utf-8') as f:
+                        r = structure.interpret(f.read())
+                        return r
 
 class VariableTypeMethods:
     @staticmethod
